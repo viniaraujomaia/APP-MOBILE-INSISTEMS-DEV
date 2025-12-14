@@ -114,7 +114,7 @@ export default function RoomPage() {
 
         {/*campo de input para o código*/}
         <TextInput
-          placeholder="Código"
+          placeholder="Tombamento"
           value={newCode}
           onChangeText={setNewCode}
           style={{
@@ -200,7 +200,7 @@ export default function RoomPage() {
 
               {/*código do item*/}
               <Text style={{ fontSize: 14 }}>
-                Código: {item[0]}
+                Tombamento: {item[0]}
               </Text>
 
               {/*tipo do item*/}
