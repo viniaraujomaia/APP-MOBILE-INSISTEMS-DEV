@@ -85,7 +85,6 @@ export default function RoomPage() {
 
   //renderização da interface da tela
   return (
-    //container principal da tela
     <View style={{ flex: 1, backgroundColor: "#F4F4F4", padding: 20 }}>
 
       {/*título exibindo o nome do ambiente*/}
@@ -106,15 +105,12 @@ export default function RoomPage() {
           elevation: 4,
         }}
       >
-
-        {/*título do card*/}
         <Text style={{ fontSize: 20, marginBottom: 15, fontWeight: "600" }}>
           Adicionar Item
         </Text>
 
-        {/*campo de input para o código*/}
         <TextInput
-          placeholder="Nº de Tombamento"
+          placeholder="Tombamento"
           value={newCode}
           onChangeText={setNewCode}
           style={{
@@ -125,7 +121,6 @@ export default function RoomPage() {
           }}
         />
 
-        {/*campo de input para o nome*/}
         <TextInput
           placeholder="Nome"
           value={newName}
@@ -138,7 +133,6 @@ export default function RoomPage() {
           }}
         />
 
-        {/*campo de input para o tipo*/}
         <TextInput
           placeholder="Tipo"
           value={newType}
@@ -151,7 +145,6 @@ export default function RoomPage() {
           }}
         />
 
-        {/*botão para salvar o item*/}
         <TouchableOpacity
           style={{
             backgroundColor: "#3A6F78",
@@ -167,17 +160,12 @@ export default function RoomPage() {
         </TouchableOpacity>
       </View>
 
-      {/*lista de itens do ambiente*/}
       <ScrollView showsVerticalScrollIndicator={false}>
-
-        {/*mensagem exibida quando não há itens*/}
         {items.length === 0 ? (
           <Text style={{ opacity: 0.5 }}>
             Nenhum item cadastrado ainda.
           </Text>
         ) : (
-
-          //mapeia o array de itens para renderização visual
           items.map((item, index) => (
             <View
               key={index}
@@ -192,23 +180,18 @@ export default function RoomPage() {
                 elevation: 3,
               }}
             >
-
-              {/*nome do item*/}
               <Text style={{ fontSize: 16, fontWeight: "bold" }}>
                 {item[1]}
               </Text>
 
-              {/*código do item*/}
               <Text style={{ fontSize: 14 }}>
-              Tombamento: {item[0]}
+                Tombamento: {item[0]}
               </Text>
 
-              {/*tipo do item*/}
               <Text style={{ fontSize: 14 }}>
                 Tipo: {item[2]}
               </Text>
 
-              {/*botão para excluir o item*/}
               <TouchableOpacity
                 style={{
                   backgroundColor: "#D9534F",
@@ -227,7 +210,6 @@ export default function RoomPage() {
           ))
         )}
 
-        {/*botão para finalizar o ambiente*/}
         <TouchableOpacity
           style={{
             backgroundColor: "#3A6F78",
@@ -243,7 +225,6 @@ export default function RoomPage() {
             Finalizar Sala
           </Text>
         </TouchableOpacity>
-
       </ScrollView>
     </View>
   );
