@@ -3,7 +3,7 @@ import { Link } from "expo-router"; //para navegação entre telas
 import React, { useEffect, useState } from "react";
 import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { RoomCard } from "../../components/RoomCard"; //componente card de ambiente
-
+        
 export default function Home() {
   //estados principais da tela
   const [rooms, setRooms] = useState<string[]>([]); //lista de ambientes
@@ -153,11 +153,11 @@ export default function Home() {
         ))}
       </ScrollView>
 
-      {/*botão de configurações*/}
-      <View style={{ marginTop: 25 }}>
+      {/*botão de implementações para depois*/}
+      <View style={{ flex: 0.2, marginTop: 25 }}>
         <Link href="/settings" asChild>
           <TouchableOpacity style={styles.primaryButton}>
-            <Text style={styles.buttonText}>Prosseguir</Text>
+            <Text style={styles.buttonText}>Implementações a posteriori</Text>
           </TouchableOpacity>
         </Link>
       </View>

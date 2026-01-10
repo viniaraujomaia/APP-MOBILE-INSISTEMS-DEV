@@ -1,130 +1,109 @@
-//importa componentes de navegação do expo router
+//importacoes principais
 import { Link, useRouter } from "expo-router";
-
-//importa react e o hook useState para controle de estado
 import React, { useState } from "react";
+import { Modal, Text, TouchableOpacity, View } from "react-native";
 
-//importa componentes básicos do react native
-import {
-  Modal, //componente para criação de popups
-  Text, //componente para exibição de texto
-  TouchableOpacity, //componente para botões clicáveis
-  View, //componente base de layout
-} from "react-native";
-
-//componente principal da tela inicial do aplicativo
+//componente principal
 export default function Home() {
-
-  //estado responsável por controlar a visibilidade do modal de importação
+  //controle do modal de importacao
   const [showImportModal, setShowImportModal] = useState(false);
 
-  //hook para navegação programática entre telas
+  //router para navegacao
   const router = useRouter();
 
-  //retorno do layout da tela
   return (
-    //container principal da tela
     <View
       style={{
-        flex: 1, //ocupa toda a tela
-        backgroundColor: "#E6F0F2", //cor de fundo
-        padding: 20, //espaçamento interno
-        justifyContent: "space-between", //distribui conteúdo entre topo e rodapé
+        flex: 1,
+        backgroundColor: "#E6F0F2",
+        padding: 20,
+        justifyContent: "space-between",
       }}
     >
-      {/*container do conteúdo principal*/}
       <View>
-
-        {/*título principal da aplicação*/}
         <Text style={{ fontSize: 26, fontWeight: "bold", marginBottom: 10 }}>
-          Maneje o seu inventário
+          Inicie a sua coleta
         </Text>
 
-        {/*texto descritivo da tela*/}
         <Text style={{ fontSize: 16, opacity: 0.7, marginBottom: 30 }}>
-          Importe listas ou continue uma coleta existente
+          Importe o arquivo da lista de demandas para iniciar o seu inventário
         </Text>
 
-        {/*botão para importar lista*/}
+        {/*importar lista ativo*/}
         <TouchableOpacity
-          //abre o modal de importação ao clicar
           onPress={() => setShowImportModal(true)}
           style={{
-            backgroundColor: "#4F7C8A", //cor do botão
-            padding: 16, //tamanho interno
-            borderRadius: 0, //bordas quadradas
-            marginBottom: 12, //espaçamento inferior
+            backgroundColor: "#3A6F78",
+            padding: 16,
+            marginBottom: 12,
           }}
         >
-          {/*texto do botão importar lista*/}
           <Text style={{ color: "#FFF", textAlign: "center", fontSize: 16 }}>
             Importar Lista
           </Text>
         </TouchableOpacity>
 
-        {/*link para continuar a coleta*/}
-        <Link href="/rooms" asChild>
-          <TouchableOpacity
-            style={{
-              backgroundColor: "#FFFFFF",
-              padding: 16,
-              borderRadius: 0,
-              marginBottom: 12,
-            }}
-          >
-            {/*texto do botão continuar coleta*/}
-            <Text style={{ textAlign: "center", fontSize: 16 }}>
-              Continuar Coleta
-            </Text>
-          </TouchableOpacity>
-        </Link>
-
-        {/*botão de relatórios (funcionalidade futura)*/}
+        {/*continuar coleta desativado*/}
         <TouchableOpacity
+          disabled
           style={{
-            backgroundColor: "#D9E4E8",
-            padding: 14,
-            borderRadius: 0,
+            backgroundColor: "#FFF",
+            padding: 16,
             marginBottom: 12,
+            opacity: 0.6,
+            borderWidth: 1,
+            borderColor: "#3A6F78",
           }}
         >
-          {/*texto do botão relatórios*/}
-          <Text style={{ textAlign: "center", fontSize: 16 }}>
+          <Text style={{ color: "#3A6F78", textAlign: "center", fontSize: 16 }}>
+            Continuar Coleta
+          </Text>
+        </TouchableOpacity>
+
+        {/*relatorios desativado*/}
+        <TouchableOpacity
+          disabled
+          style={{
+            backgroundColor: "#FFF",
+            padding: 16,
+            marginBottom: 12,
+            opacity: 0.6,
+            borderWidth: 1,
+            borderColor: "#3A6F78",
+          }}
+        >
+          <Text style={{ color: "#3A6F78", textAlign: "center", fontSize: 16 }}>
             Relatórios
           </Text>
         </TouchableOpacity>
 
-        {/*link para tela de gerenciamento de ambientes*/}
+        {/*gerenciar ambientes ativo*/}
         <Link href="/rooms" asChild>
           <TouchableOpacity
             style={{
-              backgroundColor: "#FFFFFF",
+              backgroundColor: "#3A6F78",
               padding: 16,
-              borderRadius: 0,
               marginBottom: 12,
             }}
           >
-            {/*texto do botão gerenciar ambientes*/}
-            <Text style={{ textAlign: "center", fontSize: 16 }}>
+            <Text style={{ color: "#FFF", textAlign: "center", fontSize: 16 }}>
               Gerenciar Ambientes
             </Text>
           </TouchableOpacity>
         </Link>
       </View>
 
-      {/*rodapé da aplicação*/}
-      <View style={{ alignItems: "center", marginBottom: 10 }}>
-        <Text style={{ opacity: 0.5 }}>Inventário • v1.0</Text>
-      </View>
+      <Text style={{ flex: 0.2, opacity: 0.5, textAlign: "center", fontSize: 14 }}>
+        INSISTEMS - Inventário Inteligente - v1.0
+      </Text>
 
-      {/*modal de importação de lista*/}
+      {/*modal de importacao*/}
       <Modal
-        visible={showImportModal} //controla se o modal está visível
-        transparent //permite fundo transparente
-        animationType="fade" //animação de entrada
-        onRequestClose={() => setShowImportModal(false)} //fecha o modal
+        visible={showImportModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowImportModal(false)}
       >
-        {/*overlay escuro por trás do modal*/}
         <View
           style={{
             flex: 1,
@@ -133,65 +112,44 @@ export default function Home() {
             padding: 20,
           }}
         >
-          {/*conteúdo principal do modal*/}
           <View
             style={{
               backgroundColor: "#FFF",
               padding: 20,
-              borderRadius: 0,
             }}
           >
-            {/*botão de fechar o modal (x)*/}
             <TouchableOpacity
-              onPress={() => setShowImportModal(false)} //fecha o modal
+              onPress={() => setShowImportModal(false)}
               style={{
                 position: "absolute",
                 top: 10,
                 right: 10,
                 padding: 8,
-                zIndex: 10,
               }}
             >
               <Text style={{ fontSize: 18, fontWeight: "bold" }}>✕</Text>
             </TouchableOpacity>
 
-            {/*título do modal*/}
-            <Text
-              style={{
-                fontSize: 20,
-                fontWeight: "bold",
-                marginBottom: 10,
-              }}
-            >
-              Importar lista
+            <Text style={{ fontSize: 20, fontWeight: "bold", marginBottom: 10 }}>
+              Importar Lista
             </Text>
 
-            {/*texto explicativo do modal*/}
             <Text style={{ marginBottom: 20, opacity: 0.7 }}>
               Selecione um arquivo para importar os dados de inventário.
             </Text>
 
-            {/*botão para avançar para a tela de importação*/}
             <TouchableOpacity
               onPress={() => {
-                setShowImportModal(false); //fecha o modal
-                router.push("/import"); //navega para a tela de importação
+                setShowImportModal(false);
+                router.push("/home2");
               }}
               style={{
-                backgroundColor: "#4F7C8A",
+                backgroundColor: "#3A6F78",
                 padding: 14,
-                borderRadius: 0,
               }}
             >
-              {/*texto do botão carregar arquivo*/}
-              <Text
-                style={{
-                  color: "#FFF",
-                  textAlign: "center",
-                  fontSize: 16,
-                }}
-              >
-                Carregar arquivo
+              <Text style={{ color: "#FFF", textAlign: "center", fontSize: 16 }}>
+                Carregar Arquivo
               </Text>
             </TouchableOpacity>
           </View>

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "meuApp",
+    "name": "Inventário Inteligente",
     "slug": "meuApp",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -43,6 +43,7 @@
       "eas": {
         "projectId": "b7b48f93-ce5b-4131-94d1-6d417d96962e"
       }
-    }
+    },
+    "owner": "viniaraujo"
   }
 }

@@ -1,142 +1,114 @@
-//importa o componente link para navegação entre telas usando expo router
-import { Link } from "expo-router";
-
-//importa react e o hook usestate para controle de estado
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import React, { useState } from "react";
-
-//importa componentes visuais do react native
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-//define o tipo das propriedades esperadas pelo componente roomcard
-type RoomCardProps = {
-  room: string; //nome do ambiente
-  onEdit: (room: string) => void; //função para editar ambiente
-  onDelete: (room: string) => void; //função para excluir ambiente
-};
+interface Props {
+  room: string;
+  onEdit: (room: string) => void;
+  onDelete: (room: string) => void;
+}
 
-//componente visual que representa um card de ambiente
-export function RoomCard({ room, onEdit, onDelete }: RoomCardProps) {
+export function RoomCard({ room, onEdit, onDelete }: Props) {
+  const [expanded, setExpanded] = useState(false);
 
-  //estado que controla a exibição dos botões de editar e excluir
-  const [showOptions, setShowOptions] = useState(false);
-
-  //retorno do layout do card
   return (
-    //container principal do card
     <View style={styles.card}>
+      {/* ÁREA PRINCIPAL DO CARD */}
+      <TouchableOpacity
+        style={styles.cardHeader}
+        activeOpacity={0.8}
+        onPress={() => router.push(`/rooms/${room}`)}
+      >
+        <Text style={styles.cardTitle}>{room}</Text>
 
-      {/*cabeçalho do card com nome do ambiente e botão de opções*/}
-      <View style={styles.header}>
+        {/* BOTÃO DA SETA */}
+        <TouchableOpacity
+  onPress={() => setExpanded(!expanded)}
+  style={styles.arrowButton}
+  hitSlop={10}
+>
+  <Ionicons
+    name={expanded ? "chevron-up" : "chevron-down"}
+    size={20}
+    color="#FFF"
+  />
+</TouchableOpacity>
+      </TouchableOpacity>
 
-        {/*exibe o nome do ambiente*/}
-        <Text style={styles.roomName}>{room}</Text>
-
-        {/*botão de opções (três pontos)*/}
-        <TouchableOpacity onPress={() => setShowOptions(!showOptions)}>
-          <Text style={styles.optionsIcon}>•••</Text>
-        </TouchableOpacity>
-
-      </View>
-
-      {/*botão para abrir o ambiente*/}
-      <Link href={`/rooms/${room}`} asChild>
-        <TouchableOpacity style={styles.openButton}>
-          <Text style={styles.buttonText}>Abrir Ambiente</Text>
-        </TouchableOpacity>
-      </Link>
-
-      {/*linha de ações extras exibidas ao clicar nas opções*/}
-      {showOptions && (
-        <View style={styles.actionsRow}>
-
-          {/*botão para editar o ambiente*/}
+      {/* AÇÕES (EDITAR / EXCLUIR) */}
+      {expanded && (
+        <View style={styles.actions}>
           <TouchableOpacity
-            style={[styles.actionButton, styles.editButton]}
+            style={styles.editButton}
             onPress={() => onEdit(room)}
           >
-            <Text style={styles.buttonText}>Editar</Text>
+            <Text style={styles.actionText}>Editar</Text>
           </TouchableOpacity>
 
-          {/*botão para excluir o ambiente*/}
           <TouchableOpacity
-            style={[styles.actionButton, styles.deleteButton]}
+            style={styles.deleteButton}
             onPress={() => onDelete(room)}
           >
-            <Text style={styles.buttonText}>Excluir</Text>
+            <Text style={styles.actionText}>Excluir</Text>
           </TouchableOpacity>
-
         </View>
       )}
     </View>
   );
 }
 
-//objeto de estilos do componente
 const styles = StyleSheet.create({
-
-  //estilo do card principal
   card: {
-    backgroundColor: "#fff", //cor de fundo branca
-    padding: 15, //espaçamento interno
-    borderRadius: 0, //bordas quadradas
-    marginBottom: 12, //espaçamento inferior
-    elevation: 3, //sombra no android
+    backgroundColor: "#FFF",
+    borderRadius: 0,
+    marginBottom: 15,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-
-  //estilo do cabeçalho do card
-  header: {
-    flexDirection: "row", //itens em linha
-    justifyContent: "space-between", //espaço entre nome e opções
-    alignItems: "center", //alinhamento vertical
-    marginBottom: 10, //espaçamento inferior
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 15,
+    borderWidth: 1,
+    borderColor: "#3A6F78",
   },
-
-  //estilo do texto do nome do ambiente
-  roomName: {
-    fontSize: 18, //tamanho da fonte
-    fontWeight: "bold", //texto em negrito
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: "600",
   },
-
-  //estilo do ícone de opções
-  optionsIcon: {
-    fontSize: 22, //tamanho do ícone
-    color: "#555", //cor do ícone
+  actions: {
+  flexDirection: "row",
+  borderTopWidth: 1,
+  borderColor: "#eee",
+  gap: 2, // espaço entre os botões
   },
-
-  //estilo do botão abrir ambiente
-  openButton: {
-    backgroundColor: "#3A6F78", //cor principal
-    padding: 12, //espaçamento interno
-    alignItems: "center", //centraliza o texto
-  },
-
-  //estilo da linha de botões editar e excluir
-  actionsRow: {
-    flexDirection: "row", //botões lado a lado
-    marginTop: 6, //espaçamento superior
-  },
-
-  //estilo base dos botões de ação
-  actionButton: {
-    flex: 1, //cada botão ocupa metade da largura
-    padding: 12, //espaçamento interno
-    alignItems: "center", //centraliza o texto
-  },
-
-  //estilo específico do botão editar
   editButton: {
-    backgroundColor: "#3A6F78", //cor principal
-    marginRight: 6, //espaçamento entre os botões
+    flex: 1,
+    padding: 12,
+    backgroundColor: "#3A6F78",
+    alignItems: "center",
   },
-
-  //estilo específico do botão excluir
   deleteButton: {
-    backgroundColor: "#D64545", //cor vermelha para exclusão
+    flex: 1,
+    padding: 12,
+    backgroundColor: "#D64545",
+    alignItems: "center",
   },
-
-  //estilo do texto dos botões
-  buttonText: {
-    color: "#fff", //texto branco
-    fontWeight: "bold", //texto em negrito
+  actionText: {
+    color: "#FFF",
+    fontWeight: "bold",
   },
+  arrowButton: {
+  width: 32,
+  height: 32,
+  borderWidth: 1,
+  borderColor: "#FFF",
+  backgroundColor: "#3A6F78", /*(quadrado ao retor do botão ^*/
+  justifyContent: "center",
+  alignItems: "center",
+},
 });

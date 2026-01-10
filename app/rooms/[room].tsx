@@ -1,231 +1,406 @@
-//importa o asyncstorage para salvar e ler dados localmente no dispositivo
+//salva e le dados localmente
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-//importa o router e o hook para ler parâmetros da rota no expo-router
+//navegacao e parametros da rota
 import { router, useLocalSearchParams } from "expo-router";
 
-//importa o react e os hooks de estado e efeito
+//icones
+import { Ionicons } from "@expo/vector-icons";
+
+//react e hooks
 import React, { useEffect, useState } from "react";
 
-//importa componentes básicos do react native
+//componentes nativos
 import {
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 
-//componente da tela interna do ambiente
-export default function RoomPage() {
+//tela do ambiente
+export default function roompage() {
+  //nome do ambiente vindo da rota
+  const { room } = useLocalSearchParams<{ room: string }>();
 
-  //recupera o parâmetro da rota (nome do ambiente)
-  const { room } = useLocalSearchParams();
-
-  //estado que armazena a lista de itens do ambiente
+  //lista de itens cadastrados
   const [items, setItems] = useState<string[][]>([]);
 
-  //estado para o código do novo item
-  const [newCode, setNewCode] = useState("");
+  //controla qual item esta expandido
+  const [expandedindex, setExpandedindex] = useState<number | null>(null);
 
-  //estado para o nome do novo item
-  const [newName, setNewName] = useState("");
+  //campos do novo item
+  const [newcode, setNewcode] = useState("");
+  const [newname, setNewname] = useState("");
+  const [newtype, setNewtype] = useState("");
 
-  //estado para o tipo do novo item
-  const [newType, setNewType] = useState("");
+  //controla exibicao do formulario manual
+  const [showmanual, setShowmanual] = useState(false);
 
-  //executa a leitura dos itens ao carregar a tela
+  //carrega itens ao entrar na tela
   useEffect(() => {
-    loadItems();
+    loaditems();
   }, []);
 
-  //função para carregar os itens salvos do ambiente
-  const loadItems = async () => {
-
-    //lê os itens salvos no asyncstorage usando o nome do ambiente
+  //carrega itens do asyncstorage
+  const loaditems = async () => {
     const raw = await AsyncStorage.getItem(`items-${room}`);
-
-    //converte o json salvo em array ou define array vazio
     setItems(raw ? JSON.parse(raw) : []);
   };
 
-  //função para adicionar um novo item ao ambiente
-  const addItem = async () => {
+  //adiciona novo item
+  const additem = async () => {
+    if (!newcode || !newname || !newtype) return;
 
-    //validação simples para campos vazios
-    if (!newCode || !newName || !newType) return;
-
-    //cria um novo array adicionando o item atual
-    const updated = [...items, [newCode, newName, newType]];
-
-    //salva o array atualizado no asyncstorage
+    const updated = [...items, [newcode, newname, newtype]];
     await AsyncStorage.setItem(`items-${room}`, JSON.stringify(updated));
 
-    //limpa os campos de input
-    setNewCode("");
-    setNewName("");
-    setNewType("");
+    setNewcode("");
+    setNewname("");
+    setNewtype("");
+    setShowmanual(false);
 
-    //recarrega a lista de itens
-    loadItems();
+    loaditems();
   };
 
-  //função para excluir um item pelo índice
-  const deleteItem = async (index: number) => {
-
-    //remove o item selecionado do array
+  //exclui item pelo indice
+  const deleteitem = async (index: number) => {
     const updated = items.filter((_, i) => i !== index);
-
-    //salva o array atualizado no asyncstorage
     await AsyncStorage.setItem(`items-${room}`, JSON.stringify(updated));
-
-    //recarrega a lista de itens
-    loadItems();
+    setExpandedindex(null);
+    loaditems();
   };
 
-  //renderização da interface da tela
   return (
-    <View style={{ flex: 1, backgroundColor: "#F4F4F4", padding: 20 }}>
+    <View style={styles.container}>
+      {/*cabecalho*/}
+      <View style={styles.header}>
+       {/* <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={22} color="#333" />
+        </TouchableOpacity> 
 
-      {/*título exibindo o nome do ambiente*/}
-      <Text style={{ fontSize: 28, fontWeight: "bold", marginBottom: 20 }}>
-        {room}
+        <Text style={styles.headerTitle}>{room}</Text> CÓDIGO DO BOTÃO DE VOLTAR*/}
+
+       {/* <Ionicons name="help-circle-outline" size={22} color="#3a6f78" /> CÓDIGO DO BOTÃO DE HELP (?) */}
+      </View>
+
+      {/*titulo do progresso*/}
+      <Text style={styles.sectionTitle}>Seu progresso</Text>
+
+      {/*barra de progresso*/}
+      <View style={styles.progressBar}>
+        <View style={styles.progressFill} />
+      </View>
+
+      {/*texto do progresso*/}
+      <Text style={styles.progressText}>
+        {items.length} itens já foram verificados neste ambiente
       </Text>
 
-      {/*card para adicionar um novo item*/}
-      <View
-        style={{
-          backgroundColor: "#FFF",
-          padding: 20,
-          borderRadius: 0,
-          marginBottom: 20,
-          shadowColor: "#000",
-          shadowOpacity: 0.1,
-          shadowRadius: 5,
-          elevation: 4,
-        }}
-      >
-        <Text style={{ fontSize: 20, marginBottom: 15, fontWeight: "600" }}>
-          Adicionar Item
-        </Text>
-
-        <TextInput
-          placeholder="Tombamento"
-          value={newCode}
-          onChangeText={setNewCode}
-          style={{
-            backgroundColor: "#EFEFEF",
-            padding: 12,
-            borderRadius: 0,
-            marginBottom: 10,
-          }}
-        />
-
-        <TextInput
-          placeholder="Nome"
-          value={newName}
-          onChangeText={setNewName}
-          style={{
-            backgroundColor: "#EFEFEF",
-            padding: 12,
-            borderRadius: 0,
-            marginBottom: 10,
-          }}
-        />
-
-        <TextInput
-          placeholder="Tipo"
-          value={newType}
-          onChangeText={setNewType}
-          style={{
-            backgroundColor: "#EFEFEF",
-            padding: 12,
-            borderRadius: 0,
-            marginBottom: 20,
-          }}
-        />
-
+      {/*botoes principais*/}
+      <View style={styles.actionRow}>
         <TouchableOpacity
-          style={{
-            backgroundColor: "#3A6F78",
-            padding: 12,
-            borderRadius: 0,
-            alignItems: "center",
-          }}
-          onPress={addItem}
+          style={styles.actionButton}
+          onPress={() => setShowmanual(!showmanual)}
         >
-          <Text style={{ color: "#FFF", fontSize: 16, fontWeight: "bold" }}>
-            Salvar Item
-          </Text>
+          <Ionicons name="create-outline" size={50} color="#fff" />
+          <Text style={styles.actionText}>Novo item</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.actionButton}>
+          <Ionicons name="camera-outline" size={50} color="#fff" />
+          <Text style={styles.actionText}>Novo item</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {items.length === 0 ? (
-          <Text style={{ opacity: 0.5 }}>
-            Nenhum item cadastrado ainda.
-          </Text>
-        ) : (
-          items.map((item, index) => (
-            <View
-              key={index}
-              style={{
-                backgroundColor: "#FFF",
-                padding: 15,
-                borderRadius: 0,
-                marginBottom: 15,
-                shadowColor: "#000",
-                shadowOpacity: 0.08,
-                shadowRadius: 4,
-                elevation: 3,
-              }}
+      {/*formulario manual*/}
+      {showmanual && (
+        <View style={styles.card}>
+          <TextInput
+            placeholder="Tombamento"
+            value={newcode}
+            onChangeText={setNewcode}
+            style={styles.input}
+          />
+
+          <TextInput
+            placeholder="Nome"
+            value={newname}
+            onChangeText={setNewname}
+            style={styles.input}
+          />
+
+          <TextInput
+            placeholder="Tipo"
+            value={newtype}
+            onChangeText={setNewtype}
+            style={styles.input}
+          />
+
+          {/*acoes do formulario*/}
+          <View style={styles.formActions}>
+            <TouchableOpacity style={styles.saveButton} onPress={additem}>
+              <Text style={styles.saveText}>Salvar</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => setShowmanual(false)}
             >
-              <Text style={{ fontSize: 16, fontWeight: "bold" }}>
-                {item[1]}
-              </Text>
+              <Text style={styles.cancelText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
-              <Text style={{ fontSize: 14 }}>
-                Tombamento: {item[0]}
-              </Text>
+      {/*lista de itens*/}
+      <ScrollView>
+        {items.length === 0 ? (
+          <Text style={styles.emptyText}>Nenhum item cadastrado ainda</Text>
+        ) : (
+          items.map((item, index) => {
+            const expanded = expandedindex === index;
 
-              <Text style={{ fontSize: 14 }}>
-                Tipo: {item[2]}
-              </Text>
+            return (
+              <View key={index} style={styles.itemCard}>
+                {/*cabecalho do item*/}
+                <TouchableOpacity
+                  style={styles.itemRow}
+                  onPress={() =>
+                    setExpandedindex(expanded ? null : index)
+                  }
+                >
+                  <Text style={styles.itemTitle}>{item[1]}</Text>
 
-              <TouchableOpacity
-                style={{
-                  backgroundColor: "#D9534F",
-                  padding: 10,
-                  borderRadius: 0,
-                  marginTop: 10,
-                  alignItems: "center",
-                }}
-                onPress={() => deleteItem(index)}
-              >
-                <Text style={{ color: "#FFF", fontWeight: "bold" }}>
-                  Excluir
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ))
+                  {/*botao da seta com quadrado*/}
+                  <View style={styles.arrowButton}>
+                    <Ionicons
+                      name={expanded ? "chevron-up" : "chevron-down"}
+                      size={18}
+                      color="#fff"
+                    />
+                  </View>
+                </TouchableOpacity>
+
+                {/*detalhes colapsaveis*/}
+                {expanded && (
+                  <View style={styles.itemDetails}>
+                    <Text style={styles.detailText}>
+                      Tombamento: {item[0]}
+                    </Text>
+
+                    <Text style={styles.detailText}>
+                      Tipo: {item[2]}
+                    </Text>
+
+                    <TouchableOpacity
+                      style={styles.deleteButton}
+                      onPress={() => deleteitem(index)}
+                    >
+                      <Text style={styles.deleteText}>Excluir</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            );
+          })
         )}
 
+        {/*botao finalizar*/}
         <TouchableOpacity
-          style={{
-            backgroundColor: "#3A6F78",
-            padding: 15,
-            borderRadius: 0,
-            alignItems: "center",
-            marginTop: 20,
-            marginBottom: 40,
-          }}
+          style={styles.finishButton}
           onPress={() => router.push("/rooms")}
+          
         >
-          <Text style={{ color: "#FFF", fontSize: 18, fontWeight: "bold" }}>
-            Finalizar Sala
-          </Text>
+          <Text style={styles.finishText}>Finalizar sala</Text>
+          
         </TouchableOpacity>
       </ScrollView>
     </View>
   );
 }
+
+//estilos
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#f4f6f8",
+    padding: 20,
+  },
+
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+
+  sectionTitle: {
+    fontSize: 26, 
+    fontWeight: "bold", 
+    marginBottom: 20
+
+  },
+
+  progressBar: {
+    height: 10,
+    backgroundColor: "#ddd",
+    marginBottom: 10,
+  },
+
+  progressFill: {
+    width: "20%",
+    height: "100%",
+    backgroundColor: "#3a6f78",
+  },
+
+  progressText: {
+    marginBottom: 20,
+  },
+
+  actionRow: {
+    flexDirection: "row",
+    marginBottom: 20,
+  },
+
+  actionButton: {
+    flex: 1,
+    backgroundColor: "#3a6f78",
+    marginHorizontal: 5,
+    padding: 14,
+    alignItems: "center",
+  },
+
+  actionText: {
+    color: "#fff",
+    marginTop: 5,
+    fontSize: 12,
+    textAlign: "center",
+  },
+
+  card: {
+    backgroundColor: "#fff",
+    padding: 15,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    marginBottom: 20,
+  },
+
+  input: {
+    backgroundColor: "#eee",
+    padding: 12,
+    marginBottom: 10,
+  },
+
+  formActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+
+  saveButton: {
+    backgroundColor: "#3a6f78",
+    padding: 12,
+    flex: 1,
+    marginRight: 5,
+    alignItems: "center",
+  },
+
+  saveText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+
+  cancelButton: {
+    backgroundColor: "#d64545",
+    padding: 12,
+    flex: 1,
+    marginLeft: 5,
+    alignItems: "center",
+  },
+
+  cancelText: {
+    fontWeight: "bold",
+    color: "#FFF"
+  },
+
+  itemCard: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#cbd5dc",
+    marginBottom: 10,
+  },
+
+  itemRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 14,
+  },
+
+  itemTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+  },
+
+  itemDetails: {
+    borderTopWidth: 1,
+    borderColor: "#eee",
+    padding: 14,
+  },
+
+  detailText: {
+    fontSize: 14,
+    color: "#555",
+    marginBottom: 6,
+  },
+
+  deleteButton: {
+    backgroundColor: "#d64545",
+    padding: 10,
+    alignItems: "center",
+    marginTop: 10,
+  },
+
+  deleteText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+
+  emptyText: {
+    opacity: 0.5,
+    marginBottom: 20,
+  },
+
+  finishButton: {
+    backgroundColor: "#3a6f78",
+    padding: 15,
+    alignItems: "center",
+    marginTop: 20,
+    marginBottom: 40,
+  
+  },
+
+  finishText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+
+  arrowButton: {
+    width: 32,
+    height: 32,
+    borderWidth: 1,
+    borderColor: "#fff",
+    backgroundColor: "#3a6f78",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+});

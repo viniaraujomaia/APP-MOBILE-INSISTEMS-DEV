@@ -30,11 +30,6 @@ export default function Settings() {
         Configurações
       </Text>
 
-      {/*botão para navegar para a tela de importação*/}
-      <Link href="/import" asChild>
-        <Button title="Importar dados" />
-      </Link>
-
       {/*espaçamento entre botões*/}
       <View style={{ marginTop: 10 }}>
 

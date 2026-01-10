@@ -11,7 +11,7 @@ export function ItemCard({ text }: { text: string }) {
       style={{
         padding: 12,
         borderWidth: 1,
-        borderRadius: 10,
+        borderRadius: 0,
         marginBottom: 10,
       }}
     >

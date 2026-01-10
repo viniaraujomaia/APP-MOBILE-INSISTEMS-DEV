@@ -82,7 +82,7 @@ export default function AddRoom() {
         style={{
           borderWidth: 1,
           padding: 10,
-          borderRadius: 8,
+          borderRadius: 0,
           marginBottom: 5,
         }}
       />
