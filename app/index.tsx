@@ -1,15 +1,158 @@
 //importacoes principais
+import * as DocumentPicker from 'expo-document-picker';
 import { Link, useRouter } from "expo-router";
 import React, { useState } from "react";
-import { Modal, Text, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View
+} from "react-native";
+import * as XLSX from 'xlsx';
+
+// Interface para ativo
+interface Ativo {
+  id: string;
+  nome: string;
+}
 
 //componente principal
 export default function Home() {
   //controle do modal de importacao
   const [showImportModal, setShowImportModal] = useState(false);
+  
+  // Estados para a importação
+  const [importing, setImporting] = useState(false);
+  const [importedData, setImportedData] = useState<Ativo[]>([]);
+  const [fileName, setFileName] = useState('');
+  const [importCompleted, setImportCompleted] = useState(false);
 
   //router para navegacao
   const router = useRouter();
+
+  // Função de importação
+  const handleImport = async () => {
+    try {
+      setImporting(true);
+      
+      // 1. Selecionar arquivo
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/vnd.ms-excel',
+          'text/csv',
+        ],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) {
+        setImporting(false);
+        return;
+      }
+
+      const file = result.assets?.[0];
+      if (!file) {
+        Alert.alert('Erro', 'Nenhum arquivo selecionado');
+        setImporting(false);
+        return;
+      }
+
+      setFileName(file.name);
+      
+      // 2. Ler arquivo
+      const response = await fetch(file.uri);
+      const arrayBuffer = await response.arrayBuffer();
+      
+      // 3. Processar Excel
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, {
+        header: 1,
+        defval: '',
+      }) as any[][];
+
+      // 4. Extrair dados
+      const novosAtivos: Ativo[] = [];
+      
+      for (let i = 1; i < jsonData.length; i++) {
+        const linha = jsonData[i];
+        
+        if (Array.isArray(linha) && linha.length >= 2) {
+          const numero = String(linha[0] || '').trim();
+          const nome = String(linha[1] || '').trim();
+          
+          if (numero) {
+            novosAtivos.push({
+              id: `${numero}-${i}`,
+              nome: nome || `Ativo ${numero}`,
+            });
+          }
+        }
+      }
+
+      setImportedData(novosAtivos);
+      setImportCompleted(true);
+      
+      Alert.alert(
+        '✅ Importado!',
+        `${novosAtivos.length} ativos importados com sucesso`
+      );
+      
+    } catch (error: any) {
+      console.error('Erro na importação:', error);
+      Alert.alert('❌ Erro', 'Não foi possível importar o arquivo');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  // Função para prosseguir para home2
+  const handleProceed = () => {
+    if (importedData.length === 0) {
+      Alert.alert('Aviso', 'Nenhum dado importado para prosseguir');
+      return;
+    }
+    
+    setShowImportModal(false);
+    router.push({
+      pathname: "/home2",
+      params: { 
+        ativos: JSON.stringify(importedData),
+        fileName: fileName,
+        total: importedData.length.toString()
+      }
+    });
+    
+    // Resetar estados após navegação
+    setImportedData([]);
+    setFileName('');
+    setImportCompleted(false);
+  };
+
+  // Função para resetar a importação
+  const resetImport = () => {
+    setImportedData([]);
+    setFileName('');
+    setImportCompleted(false);
+  };
+
+  // Função principal do botão do modal
+  const handleMainButton = () => {
+    if (importCompleted) {
+      handleProceed();
+    } else {
+      handleImport();
+    }
+  };
+
+  // Fechar modal e resetar
+  const handleCloseModal = () => {
+    setShowImportModal(false);
+    resetImport();
+  };
 
   return (
     <View
@@ -102,7 +245,7 @@ export default function Home() {
         visible={showImportModal}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowImportModal(false)}
+        onRequestClose={handleCloseModal}
       >
         <View
           style={{
@@ -116,10 +259,12 @@ export default function Home() {
             style={{
               backgroundColor: "#FFF",
               padding: 20,
+              borderRadius: 8,
+              maxHeight: '80%',
             }}
           >
             <TouchableOpacity
-              onPress={() => setShowImportModal(false)}
+              onPress={handleCloseModal}
               style={{
                 position: "absolute",
                 top: 10,
@@ -135,23 +280,90 @@ export default function Home() {
             </Text>
 
             <Text style={{ marginBottom: 20, opacity: 0.7 }}>
-              Selecione um arquivo para importar os dados de inventário.
+              {importCompleted 
+                ? `✅ ${importedData.length} ativos importados de ${fileName}`
+                : "Selecione um arquivo para importar os dados de inventário."
+              }
             </Text>
 
+            {/* Lista de itens importados (após sucesso) */}
+            {importCompleted && importedData.length > 0 && (
+              <View style={{ marginBottom: 20, maxHeight: 200 }}>
+                <Text style={{ fontWeight: '600', marginBottom: 8 }}>
+                  Itens importados:
+                </Text>
+                <ScrollView>
+                  {importedData.slice(0, 10).map((ativo, index) => (
+                    <View 
+                      key={ativo.id}
+                      style={{ 
+                        padding: 8,
+                        marginBottom: 4,
+                        backgroundColor: index % 2 === 0 ? '#f5f5f5' : '#fff',
+                        borderRadius: 4,
+                      }}
+                    >
+                      <Text style={{ fontSize: 14 }}>
+                        <Text style={{ fontWeight: 'bold' }}>{ativo.id.split('-')[0]}</Text> - {ativo.nome}
+                      </Text>
+                    </View>
+                  ))}
+                  {importedData.length > 10 && (
+                    <Text style={{ fontSize: 12, color: '#666', textAlign: 'center', marginTop: 8 }}>
+                      ... e mais {importedData.length - 10} itens
+                    </Text>
+                  )}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Botão principal que muda de função */}
             <TouchableOpacity
-              onPress={() => {
-                setShowImportModal(false);
-                router.push("/home2");
-              }}
+              onPress={handleMainButton}
+              disabled={importing}
               style={{
-                backgroundColor: "#3A6F78",
+                backgroundColor: importing ? "#9E9E9E" : "#3A6F78",
                 padding: 14,
+                borderRadius: 4,
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: 50,
               }}
             >
-              <Text style={{ color: "#FFF", textAlign: "center", fontSize: 16 }}>
-                Carregar Arquivo
-              </Text>
+              {importing ? (
+                <ActivityIndicator color="#FFF" size="small" />
+              ) : (
+                <Text style={{ color: "#FFF", textAlign: "center", fontSize: 16 }}>
+                  {importCompleted ? "🚀 Prosseguir para Home2" : "Carregar Arquivo"}
+                </Text>
+              )}
             </TouchableOpacity>
+
+            {/* Texto de status durante importação */}
+            {importing && (
+              <Text style={{ marginTop: 8, textAlign: 'center', fontSize: 14, color: '#666' }}>
+                Processando arquivo...
+              </Text>
+            )}
+
+            {/* Botão para importar outro arquivo (após sucesso) */}
+            {importCompleted && (
+              <TouchableOpacity
+                onPress={resetImport}
+                style={{
+                  backgroundColor: "#FFF",
+                  padding: 12,
+                  borderRadius: 4,
+                  borderWidth: 1,
+                  borderColor: "#3A6F78",
+                  marginTop: 12,
+                }}
+              >
+                <Text style={{ color: "#3A6F78", textAlign: "center", fontSize: 14 }}>
+                  Importar outro arquivo
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </Modal>
