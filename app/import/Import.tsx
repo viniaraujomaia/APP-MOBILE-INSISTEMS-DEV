@@ -245,18 +245,9 @@ export default function ImportScreen() {
           {/* Botão para ir para home2 */}
           <View style={{ flex: 1, marginRight: 8 }}>
             <Button
-              title="🚀 Ir para Home2"
+              title="Prosseguir"
               onPress={irParaHome2}
-              color="#4CAF50"
-            />
-          </View>
-          
-          {/* Botão para limpar dados */}
-          <View style={{ flex: 1, marginLeft: 8 }}>
-            <Button
-              title="🗑️ Limpar Lista"
-              onPress={limparDados}
-              color="#F44336"
+              color="#3AA76D"
             />
           </View>
         </View>
