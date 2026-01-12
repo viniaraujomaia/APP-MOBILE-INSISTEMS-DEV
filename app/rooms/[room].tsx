@@ -214,7 +214,7 @@ export default function roompage() {
           onPress={() => router.push("/rooms")}
           
         >
-          <Text style={styles.finishText}>Finalizar sala</Text>
+          <Text style={styles.finishText}>Finalizar Ambiente</Text>
           
         </TouchableOpacity>
       </ScrollView>
