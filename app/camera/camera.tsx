@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission, useCodeScanner } from 'react-native-vision-camera';
 
+// A exportação padrão é obrigatória para rotas do Expo Router
 export default function CameraScreen() {
     const { hasPermission, requestPermission } = useCameraPermission();
     const device = useCameraDevice('back');

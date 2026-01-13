@@ -17,7 +17,8 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Este app precisa acessar sua câmera para escanear códigos."
-      }
+      },
+      "bundleIdentifier": "com.viniaraujo.meuApp"
     },
     "android": {
       "adaptiveIcon": {
