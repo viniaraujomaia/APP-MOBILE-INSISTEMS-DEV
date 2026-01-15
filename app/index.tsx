@@ -107,6 +107,19 @@ export default function Home() {
             </Text>
           </TouchableOpacity>
         </Link>
+        <Link href="/camera/camera" asChild>
+          <TouchableOpacity
+            style={{
+              backgroundColor: "#3A6F78",
+              padding: 16,
+              marginBottom: 12,
+            }}
+          >
+            <Text style={{ color: "#FFF", textAlign: "center", fontSize: 16 }}>
+              camereaotaro
+            </Text>
+          </TouchableOpacity>
+        </Link>
       </View>
 
       {/* Rodapé */}
