@@ -1,5 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useRef, useState } from 'react';
+import {
+    Dimensions,
+    NativeSyntheticEvent,
+    NativeTouchEvent,
+    StyleSheet,
+    Text,
+    View,
+} from 'react-native';
 import {
     Camera,
     Code,
@@ -7,6 +14,7 @@ import {
     useCodeScanner,
 } from 'react-native-vision-camera';
 
+const { width, height } = Dimensions.get('window');
 
 type ScannedCodeType = {
     value: string;
@@ -14,66 +22,48 @@ type ScannedCodeType = {
 } | null;
 
 export default function App() {
-    const [isActive, setIsActive] = useState(true);
     const [scannedCode, setScannedCode] = useState<ScannedCodeType>(null);
-    const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+    const [isManualScanActive, setIsManualScanActive] = useState(false);
+    const [isFocusing, setIsFocusing] = useState(false);
+
     const device = useCameraDevice('back');
     const cameraRef = useRef<Camera>(null);
 
-    // ✅ FLUXO CORRETO DE PERMISSÃO
-    useEffect(() => {
-        const checkAndRequestPermission = async () => {
-            console.log("🔍 Iniciando verificação de permissão...");
 
-            // 1. Verificar status atual da permissão
-            const currentStatus = await Camera.getCameraPermissionStatus();
-            console.log("📋 Status atual:", currentStatus);
+    // Função para ativar a varredura manual
+    const activateManualScan = useCallback(() => {
+        console.log("👆 Ativando modo de varredura manual...");
+        setIsManualScanActive(true);
 
-            // Se já tem permissão
-            if (currentStatus === 'granted') {
-                console.log("✅ Permissão já concedida!");
-                setHasPermission(true);
-                return;
-            }
-
-            // Se foi negada anteriormente
-            if (currentStatus === 'denied') {
-                console.log("❌ Permissão negada anteriormente");
-                setHasPermission(false);
-
-                Alert.alert(
-                    'Permissão Necessária',
-                    'Você negou a permissão da câmera anteriormente. Para usar o scanner, permita o acesso à câmera nas configurações do app.',
-                    [
-                        { text: 'Cancelar', style: 'cancel' },
-                        {
-                            text: 'Abrir Configurações',
-                            onPress: () => Linking.openSettings()
-                        }
-                    ]
-                );
-                return;
-            }
-
-            // Se NUNCA foi solicitado (mostrar diálogo nativo)
-            console.log("🔄 Solicitando permissão pela primeira vez...");
-            const newPermission = await Camera.requestCameraPermission();
-            console.log("🎯 Resposta do usuário:", newPermission);
-
-            if (newPermission === 'granted') {
-                console.log("🎉 Usuário aceitou!");
-                setHasPermission(true);
-            } else {
-                console.log("😞 Usuário negou");
-                setHasPermission(false);
-            }
-        };
-
-        // Pequeno delay para garantir que o app está carregado
+        // Desativa a varredura após 2 segundos
         setTimeout(() => {
-            checkAndRequestPermission();
-        }, 500);
+            setIsManualScanActive(false);
+            console.log("⏸️ Modo de varredura manual desativado.");
+        }, 2000);
     }, []);
+
+    // Manipulador de toque na tela com controle de foco
+    const handleTap = async (event: NativeSyntheticEvent<NativeTouchEvent>) => {
+        const { locationX, locationY } = event.nativeEvent;
+
+        // 1. Ativa o scanner imediatamente para responsividade
+        activateManualScan();
+
+        // 2. Lida com o foco apenas se já não estiver focando
+        if (!isFocusing && cameraRef.current && device?.supportsFocus) {
+            setIsFocusing(true);
+            try {
+                // 'focus' retorna uma Promise
+                await cameraRef.current.focus({ x: locationX, y: locationY });
+            } catch (error: any) {
+                // Tipamos o erro como 'any' para acessar '.message' com segurança
+                console.log("Erro de foco (não crítico):", error.message);
+            } finally {
+                // Permite um novo pedido de foco após um pequeno atraso
+                setTimeout(() => setIsFocusing(false), 500);
+            }
+        }
+    };
 
     const codeScanner = useCodeScanner({
         codeTypes: [
@@ -88,43 +78,26 @@ export default function App() {
             'code-93',
         ],
         onCodeScanned: (codes: Code[]) => {
+            // Só processa se o modo manual estiver ATIVO
+            if (!isManualScanActive) return;
+
             if (codes.length > 0) {
                 const code = codes[0];
-                console.log('✅ Código escaneado:', code.value);
-                console.log('📊 Tipo:', code.type);
+                console.log('✅ Código escaneado (Manual):', code.value);
                 setScannedCode({
                     value: code.value || '',
                     type: code.type || 'unknown',
                 });
 
-                // Resetar após 3 segundos
+                // Desativa a varredura imediatamente após sucesso
+                setIsManualScanActive(false);
+                // Resetar após 5 segundos
                 setTimeout(() => {
                     setScannedCode(null);
-                }, 3000);
+                }, 5000);
             }
         },
     });
-
-    // ⏳ Carregando/Verificando
-    if (hasPermission === null) {
-        return (
-            <View style={styles.centerContainer}>
-                <Text style={styles.centerText}>Verificando permissões da câmera...</Text>
-            </View>
-        );
-    }
-
-    // ❌ Permissão negada
-    if (!hasPermission) {
-        return (
-            <View style={styles.centerContainer}>
-                <Text style={styles.centerText}>
-                    Permissão da câmera necessária.{'\n'}
-                    Habilite nas configurações do app.
-                </Text>
-            </View>
-        );
-    }
 
     // 📱 Dispositivo não encontrado
     if (!device) {
@@ -140,13 +113,14 @@ export default function App() {
 
     // ✅ Tudo ok - mostrar câmera
     return (
-        <View style={styles.container}>
+        <View style={styles.container} onTouchEnd={handleTap}>
             <Camera
                 ref={cameraRef}
                 style={StyleSheet.absoluteFill}
                 device={device}
-                isActive={isActive}
-                codeScanner={codeScanner}
+                isActive={true}
+                // Passa o scanner SOMENTE quando o modo manual estiver ativo
+                codeScanner={isManualScanActive ? codeScanner : undefined}
             />
 
             {/* Overlay do código escaneado */}
@@ -161,10 +135,12 @@ export default function App() {
                 </View>
             )}
 
-            {/* Instruções */}
+            {/* Instruções que mudam conforme o estado */}
             <View style={styles.instructionOverlay}>
                 <Text style={styles.instructionText}>
-                    📸 Aponte para um código QR ou de barras
+                    {isManualScanActive
+                        ? "📷 Lendo código..."
+                        : "👆 Toque na tela com o código para escanear"}
                 </Text>
             </View>
         </View>
