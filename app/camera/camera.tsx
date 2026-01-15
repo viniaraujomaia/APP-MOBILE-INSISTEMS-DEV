@@ -1,83 +1,172 @@
-// app/camera/camera.tsx - VERSÃO CORRIGIDA
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Camera, useCameraDevice, useCameraPermission, useCodeScanner } from 'react-native-vision-camera';
+import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
+import {
+    Camera,
+    Code,
+    useCameraDevice,
+    useCodeScanner,
+} from 'react-native-vision-camera';
 
-// A exportação padrão é obrigatória para rotas do Expo Router
-export default function CameraScreen() {
-    const { hasPermission, requestPermission } = useCameraPermission();
-    const device = useCameraDevice('back');
-    const camera = useRef<Camera>(null);
+
+type ScannedCodeType = {
+    value: string;
+    type: string;
+} | null;
+
+export default function App() {
     const [isActive, setIsActive] = useState(true);
+    const [scannedCode, setScannedCode] = useState<ScannedCodeType>(null);
+    const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+    const device = useCameraDevice('back');
+    const cameraRef = useRef<Camera>(null);
 
-    // Configurar scanner de código
+    // ✅ FLUXO CORRETO DE PERMISSÃO
+    useEffect(() => {
+        const checkAndRequestPermission = async () => {
+            console.log("🔍 Iniciando verificação de permissão...");
+
+            // 1. Verificar status atual da permissão
+            const currentStatus = await Camera.getCameraPermissionStatus();
+            console.log("📋 Status atual:", currentStatus);
+
+            // Se já tem permissão
+            if (currentStatus === 'granted') {
+                console.log("✅ Permissão já concedida!");
+                setHasPermission(true);
+                return;
+            }
+
+            // Se foi negada anteriormente
+            if (currentStatus === 'denied') {
+                console.log("❌ Permissão negada anteriormente");
+                setHasPermission(false);
+
+                Alert.alert(
+                    'Permissão Necessária',
+                    'Você negou a permissão da câmera anteriormente. Para usar o scanner, permita o acesso à câmera nas configurações do app.',
+                    [
+                        { text: 'Cancelar', style: 'cancel' },
+                        {
+                            text: 'Abrir Configurações',
+                            onPress: () => Linking.openSettings()
+                        }
+                    ]
+                );
+                return;
+            }
+
+            // Se NUNCA foi solicitado (mostrar diálogo nativo)
+            console.log("🔄 Solicitando permissão pela primeira vez...");
+            const newPermission = await Camera.requestCameraPermission();
+            console.log("🎯 Resposta do usuário:", newPermission);
+
+            if (newPermission === 'granted') {
+                console.log("🎉 Usuário aceitou!");
+                setHasPermission(true);
+            } else {
+                console.log("😞 Usuário negou");
+                setHasPermission(false);
+            }
+        };
+
+        // Pequeno delay para garantir que o app está carregado
+        setTimeout(() => {
+            checkAndRequestPermission();
+        }, 500);
+    }, []);
+
     const codeScanner = useCodeScanner({
-        codeTypes: ['qr', 'ean-13'],
-        onCodeScanned: (codes) => {
-            console.log(`Scanned ${codes.length} codes!`);
-            codes.forEach(code => {
-                Alert.alert('Código Escaneado', `Valor: ${code.value}`);
-            });
+        codeTypes: [
+            'qr',
+            'ean-13',
+            'ean-8',
+            'upc-a',
+            'upc-e',
+            'code-128',
+            'code-39',
+            'itf',
+            'code-93',
+        ],
+        onCodeScanned: (codes: Code[]) => {
+            if (codes.length > 0) {
+                const code = codes[0];
+                console.log('✅ Código escaneado:', code.value);
+                console.log('📊 Tipo:', code.type);
+                setScannedCode({
+                    value: code.value || '',
+                    type: code.type || 'unknown',
+                });
+
+                // Resetar após 3 segundos
+                setTimeout(() => {
+                    setScannedCode(null);
+                }, 3000);
+            }
         },
     });
 
-    useEffect(() => {
-        // Solicitar permissão quando o componente montar
-        if (!hasPermission) {
-            requestPermission().then(granted => {
-                if (!granted) {
-                    Alert.alert(
-                        'Permissão necessária',
-                        'O app precisa de acesso à câmera para funcionar.',
-                        [
-                            { text: 'Abrir Configurações', onPress: () => Linking.openSettings() },
-                            { text: 'Cancelar', style: 'cancel' }
-                        ]
-                    );
-                }
-            });
-        }
-    }, [hasPermission]);
+    // ⏳ Carregando/Verificando
+    if (hasPermission === null) {
+        return (
+            <View style={styles.centerContainer}>
+                <Text style={styles.centerText}>Verificando permissões da câmera...</Text>
+            </View>
+        );
+    }
 
+    // ❌ Permissão negada
     if (!hasPermission) {
         return (
-            <View style={styles.container}>
-                <Text style={styles.text}>Aguardando permissão da câmera...</Text>
+            <View style={styles.centerContainer}>
+                <Text style={styles.centerText}>
+                    Permissão da câmera necessária.{'\n'}
+                    Habilite nas configurações do app.
+                </Text>
             </View>
         );
     }
 
-    if (device == null) {
+    // 📱 Dispositivo não encontrado
+    if (!device) {
         return (
-            <View style={styles.container}>
-                <Text style={styles.text}>Câmera não disponível</Text>
+            <View style={styles.centerContainer}>
+                <Text style={styles.centerText}>
+                    Câmera não encontrada.{'\n'}
+                    Verifique se seu dispositivo tem câmera traseira.
+                </Text>
             </View>
         );
     }
 
+    // ✅ Tudo ok - mostrar câmera
     return (
         <View style={styles.container}>
             <Camera
-                ref={camera}
+                ref={cameraRef}
                 style={StyleSheet.absoluteFill}
                 device={device}
                 isActive={isActive}
                 codeScanner={codeScanner}
-                video={false}
-                audio={false}
             />
 
-            <View style={styles.overlay}>
-                <View style={styles.scanArea} />
-                <Text style={styles.instruction}>Posicione o código QR no quadrado</Text>
-            </View>
+            {/* Overlay do código escaneado */}
+            {scannedCode && (
+                <View style={styles.overlay}>
+                    <Text style={styles.scannedText}>
+                        ✅ Código: {scannedCode.value}
+                    </Text>
+                    <Text style={styles.typeText}>
+                        📊 Tipo: {scannedCode.type}
+                    </Text>
+                </View>
+            )}
 
-            <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setIsActive(false)}
-            >
-                <Text style={styles.closeText}>Fechar Câmera</Text>
-            </TouchableOpacity>
+            {/* Instruções */}
+            <View style={styles.instructionOverlay}>
+                <Text style={styles.instructionText}>
+                    📸 Aponte para um código QR ou de barras
+                </Text>
+            </View>
         </View>
     );
 }
@@ -87,41 +176,54 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: 'black',
     },
-    overlay: {
-        ...StyleSheet.absoluteFillObject,
+    centerContainer: {
+        flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-    },
-    scanArea: {
-        width: 250,
-        height: 250,
-        borderWidth: 2,
-        borderColor: 'white',
-        backgroundColor: 'transparent',
-    },
-    instruction: {
-        color: 'white',
-        fontSize: 16,
-        marginTop: 20,
-        textAlign: 'center',
+        backgroundColor: 'black',
         paddingHorizontal: 20,
     },
-    closeButton: {
+    centerText: {
+        color: 'white',
+        fontSize: 18,
+        textAlign: 'center',
+        lineHeight: 28,
+    },
+    overlay: {
         position: 'absolute',
-        bottom: 40,
-        alignSelf: 'center',
-        backgroundColor: 'rgba(0,0,0,0.7)',
-        paddingHorizontal: 30,
-        paddingVertical: 15,
-        borderRadius: 25,
+        top: 60,
+        left: 20,
+        right: 20,
+        backgroundColor: 'rgba(0, 100, 0, 0.85)',
+        padding: 15,
+        borderRadius: 10,
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: '#4CAF50',
     },
-    closeText: {
+    scannedText: {
         color: 'white',
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: 'bold',
+        marginBottom: 5,
     },
-    text: {
+    typeText: {
+        color: '#C8E6C9',
+        fontSize: 14,
+    },
+    instructionOverlay: {
+        position: 'absolute',
+        bottom: 60,
+        left: 20,
+        right: 20,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        padding: 15,
+        borderRadius: 10,
+        alignItems: 'center',
+    },
+    instructionText: {
         color: 'white',
-        fontSize: 18,
-    }
+        fontSize: 16,
+        textAlign: 'center',
+    },
 });
