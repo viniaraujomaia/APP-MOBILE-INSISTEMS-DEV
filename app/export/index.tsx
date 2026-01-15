@@ -104,10 +104,10 @@ export default function ExportScreen() {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Inventario");
       
-      // Gera como ARRAY (ArrayBuffer) para compatibilidade com Expo FileSystem novo
+      // Gera como ARRAY (ArrayBuffer) para compatibilidade com Expo FileSystem 
       const wbout = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
 
-      // 3. Salva o Arquivo (MÉTODO MODERNO - SDK 52+)
+      // 3. Salva o Arquivo 
       const fileName = getFileName();
       // Define o caminho no cache do app
       const file = new File(Paths.cache, fileName);
