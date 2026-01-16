@@ -92,10 +92,7 @@ export default function ImportModal({
       setAtivos(novosAtivos);
       setImportSuccess(true);
 
-      Alert.alert(
-        "✅ Importado com sucesso!",
-        `${novosAtivos.length} ativos encontrados no arquivo`,
-      );
+
     } catch (error: any) {
       console.error("Erro na importação:", error);
       Alert.alert("❌ Erro", "Não foi possível importar o arquivo");

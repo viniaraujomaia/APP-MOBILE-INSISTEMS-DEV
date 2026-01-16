@@ -1,40 +1,46 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 
 export default function ReportsPage() {
+  const router = useRouter();
   return (
     <View style={{ flex: 1, backgroundColor: "#F5F7F9" }}>
-
       {/* Cabeçalho */}
       <View
         style={{
           flexDirection: "row",
           alignItems: "center",
-          padding: 16,
+          padding: 15,
+          paddingTop: 50,
         }}
       >
         {/* Botão de voltar */}
-        {/*<TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#000" />
-        </TouchableOpacity> 
+        </TouchableOpacity>
 
         <Text
           style={{
-            marginLeft: 12,
-            fontSize: 16,
+            fontFamily: "Poppins",
+            marginLeft: 130,
+            fontSize: 20,
             fontWeight: "500",
           }}
         >
           Relatórios
-        </Text> */} 
+        </Text>
       </View>
 
       {/* Conteúdo */}
-      <View style={{ paddingHorizontal: 16 }}>
+      <View style={{ paddingHorizontal: 27 }}>
         <Text
           style={{
-            fontSize: 24,
-            fontWeight: "bold",
+            fontFamily: "Poppins",
+            fontSize: 32,
+            fontWeight: "600",
             marginTop: 10,
+            letterSpacing: 0.416,
           }}
         >
           Relatórios
@@ -44,6 +50,9 @@ export default function ReportsPage() {
           style={{
             color: "#6B7280",
             marginBottom: 20,
+            fontSize: 20,
+            fontWeight: 400,
+            letterSpacing: 0.26,
           }}
         >
           Acesse os relatórios anteriores
@@ -63,9 +72,7 @@ export default function ReportsPage() {
                 backgroundColor: "#FFF",
               }}
             >
-              <Text style={{ color: "#4B5563" }}>
-                Data da conclusão
-              </Text>
+              <Text style={{ color: "#4B5563" }}>Data da conclusão</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
