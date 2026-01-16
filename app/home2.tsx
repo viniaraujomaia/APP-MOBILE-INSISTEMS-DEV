@@ -7,7 +7,7 @@ import {
   StatusBar,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 
 interface Ativo {
@@ -41,7 +41,7 @@ export default function Home2() {
         }
       } catch (error) {
         console.error("Erro ao carregar dados:", error);
-        router.push("/"); // CORREÇÃO AQUI
+        router.push("/");
       } finally {
         setLoading(false);
       }
@@ -90,7 +90,7 @@ export default function Home2() {
           padding: 20,
           paddingTop: 45,
           paddingHorizontal: 34,
-          justifyContent: "space-between",
+          paddingBottom: 80, // Espaço para o footer
         }}
       >
         <View>
@@ -219,7 +219,7 @@ export default function Home2() {
             onPress={async () => {
               await AsyncStorage.removeItem(STORAGE_KEY);
               await AsyncStorage.removeItem(FILE_NAME_KEY);
-              router.push("/"); // CORREÇÃO AQUI
+              router.push("/");
             }}
             style={{
               backgroundColor: "#FF6B6B",
@@ -241,12 +241,103 @@ export default function Home2() {
             </Text>
           </TouchableOpacity>
         </View>
+      </View>
 
-        <Text
-          style={{ flex: 0.2, opacity: 0.5, textAlign: "center", fontSize: 14 }}
+      {/* FOOTER FIXO COM 3 BOTÕES */}
+      <View
+        style={{
+          backgroundColor: "#3A6F78",
+          borderTopWidth: 1,
+          borderTopColor: "#E0E0E0",
+          flexDirection: "row",
+          justifyContent: "space-around",
+          alignItems: "center",
+          paddingVertical: 12,
+          paddingHorizontal: 10,
+          // Para ficar fixo na parte inferior
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+        }}
+      >
+        {/* Botão 1 - Início */}
+        <TouchableOpacity
+          style={{
+            alignItems: "center",
+            paddingHorizontal: 10,
+            paddingVertical: 8,
+            borderRadius: 8,
+            flex: 1,
+            marginHorizontal: 5,
+            backgroundColor: "#3A6F78",
+          }}
+          onPress={() => router.push("/compare")}
         >
-          INSISTEMS - Inventário Inteligente - v1.0
-        </Text>
+          <Text
+            style={{
+              color: "#FFF",
+              fontSize: 14,
+              fontWeight: "600",
+              fontFamily: "poppins",
+            }}
+          >
+            Pesquisa
+          </Text>
+        </TouchableOpacity>
+
+        {/* Botão 2 - Coletas */}
+        <TouchableOpacity
+          style={{
+            alignItems: "center",
+            paddingHorizontal: 10,
+            paddingVertical: 8,
+            borderRadius: 8,
+            flex: 1,
+            marginHorizontal: 5,
+            backgroundColor: "#3A6F78",
+          }}
+          onPress={() => {
+            // Se já está na tela de coletas, apenas faz nada ou recarrega
+            console.log("Coletas pressionado");
+          }}
+        >
+          <Text
+            style={{
+              color: "#FFF",
+              fontSize: 14,
+              fontWeight: "600",
+              fontFamily: "poppins",
+            }}
+          >
+            Home
+          </Text>
+        </TouchableOpacity>
+
+        {/* Botão 3 - Perfil */}
+        <TouchableOpacity
+          style={{
+            alignItems: "center",
+            paddingHorizontal: 10,
+            paddingVertical: 8,
+            borderRadius: 8,
+            flex: 1,
+            marginHorizontal: 5,
+            backgroundColor: "#3A6F78",
+          }}
+          onPress={() => router.push("/camera/camera")}
+        >
+          <Text
+            style={{
+              color: "#FFF",
+              fontSize: 14,
+              fontWeight: "600",
+              fontFamily: "poppins",
+            }}
+          >
+            Camera
+          </Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
