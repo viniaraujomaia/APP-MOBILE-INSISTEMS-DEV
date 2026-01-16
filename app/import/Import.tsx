@@ -91,8 +91,6 @@ export default function ImportModal({
 
       setAtivos(novosAtivos);
       setImportSuccess(true);
-
-
     } catch (error: any) {
       console.error("Erro na importação:", error);
       Alert.alert("❌ Erro", "Não foi possível importar o arquivo");
@@ -120,13 +118,6 @@ export default function ImportModal({
     setImportSuccess(false);
   };
 
-  // Função para limpar dados (importar outro)
-  const handleImportAnother = () => {
-    setAtivos([]);
-    setFileName("");
-    setImportSuccess(false);
-  };
-
   const handleClose = () => {
     onClose();
     setAtivos([]);
@@ -149,39 +140,46 @@ export default function ImportModal({
       <View
         style={{
           flex: 1,
-          backgroundColor: "rgba(0,0,0,0.5)",
+          backgroundColor: "#3A6F7859",
           justifyContent: "center",
-          padding: 20,
+          padding: 25,
+          paddingHorizontal: 34,
         }}
       >
         <View
           style={{
             backgroundColor: "#FFF",
             padding: 20,
+            paddingHorizontal: 27,
             maxHeight: "80%",
           }}
         >
-          <TouchableOpacity
-            onPress={handleClose}
+          <Text
             style={{
-              position: "absolute",
-              top: 10,
-              right: 10,
-              padding: 8,
-              zIndex: 10,
+              color: "#1B1B1E",
+              fontSize: 24,
+              fontWeight: "semibold",
+              marginBottom: 10,
+              fontFamily: "poppins",
+              letterSpacing: 0.312,
             }}
           >
-            <Text style={{ fontSize: 18, fontWeight: "bold" }}>✕</Text>
-          </TouchableOpacity>
-
-          <Text style={{ fontSize: 20, fontWeight: "bold", marginBottom: 10 }}>
-            Importar Lista
+            Importar Planilha
           </Text>
 
-          <Text style={{ marginBottom: 20, opacity: 0.7 }}>
+          <Text
+            style={{
+              marginBottom: 20,
+              color: "#373F51",
+              fontFamily: "poppins",
+              fontWeight: "semibold",
+              letterSpacing: 0.26,
+              fontSize: 20,
+            }}
+          >
             {importSuccess
-              ? `Importação bem-sucedida! Comece seu inventário`
-              : "Importe o arquivo da demanda no formato .xlsx para iniciar a sua coleta"}
+              ? `Importação bem-\nsucedida! Comece seu\ninventário`
+              : "Importe o arquivo da\ndemanda no formato\n.xlsx para iniciar a sua\ncoleta"}
           </Text>
 
           {/* Botão PRINCIPAL (só para importar) */}
@@ -196,13 +194,21 @@ export default function ImportModal({
                 justifyContent: "center",
                 minHeight: 50,
                 marginBottom: 16,
+                paddingLeft: 27,
               }}
             >
               {loading ? (
                 <ActivityIndicator color="#FFF" size="small" />
               ) : (
                 <Text
-                  style={{ color: "#FFF", textAlign: "center", fontSize: 16 }}
+                  style={{
+                    color: "#F9FBFD",
+                    textAlign: "center",
+                    fontSize: 20,
+                    fontWeight: 600,
+                    letterSpacing: 0.26,
+                    fontFamily: "poppins",
+                  }}
                 >
                   Carregar Arquivo
                 </Text>
@@ -253,10 +259,12 @@ export default function ImportModal({
               >
                 <Text
                   style={{
-                    color: "#FFF",
+                    color: "#F9FBFD",
                     textAlign: "center",
-                    fontSize: 14,
-                    fontWeight: "600",
+                    fontSize: 20,
+                    fontWeight: 600,
+                    letterSpacing: 0.26,
+                    fontFamily: "poppins",
                   }}
                 >
                   Prosseguir

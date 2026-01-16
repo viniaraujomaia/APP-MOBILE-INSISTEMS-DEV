@@ -1,7 +1,13 @@
 // app/index.tsx
 import { Link, useRouter } from "expo-router";
 import { useState } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import {
+  SafeAreaView,
+  StatusBar,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import ImportModal from "./import/Import";
 
 interface Ativo {
@@ -28,118 +34,189 @@ export default function Home() {
   };
 
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: "#E6F0F2",
-        padding: 20,
-        justifyContent: "space-between",
-      }}
-    >
-      <View>
-        <Text style={{ fontSize: 26, fontWeight: "bold", marginBottom: 10 }}>
-          Inicie a sua coleta
-        </Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#E6F0F2" }}>
+      <StatusBar backgroundColor="#3A6F78" barStyle="light-content" />
 
-        <Text style={{ fontSize: 16, opacity: 0.7, marginBottom: 30 }}>
-          Importe o arquivo da lista de demandas para iniciar o seu inventário
-        </Text>
-
-        {/* Botão Importar Lista */}
-        <TouchableOpacity
-          onPress={() => setShowImportModal(true)}
-          style={{
-            backgroundColor: "#3A6F78",
-            padding: 16,
-            marginBottom: 12,
-          }}
-        >
-          <Text style={{ color: "#FFF", textAlign: "center", fontSize: 16 }}>
-            Importar Lista
-          </Text>
-        </TouchableOpacity>
-
-        {/* Botão Continuar Coleta (desativado) */}
-        <TouchableOpacity
-          disabled
-          style={{
-            backgroundColor: "#FFF",
-            padding: 16,
-            marginBottom: 12,
-            opacity: 0.6,
-            borderWidth: 1,
-            borderColor: "#3A6F78",
-          }}
-        >
-          <Text style={{ color: "#3A6F78", textAlign: "center", fontSize: 16 }}>
-            Continuar Coleta
-          </Text>
-        </TouchableOpacity>
-
-        {/* Botão Relatórios (desativado) */}
-        <TouchableOpacity
-          disabled
-          style={{
-            backgroundColor: "#FFF",
-            padding: 16,
-            marginBottom: 12,
-            opacity: 0.6,
-            borderWidth: 1,
-            borderColor: "#3A6F78",
-          }}
-        >
-          <Text style={{ color: "#3A6F78", textAlign: "center", fontSize: 16 }}>
-            Relatórios
-          </Text>
-        </TouchableOpacity>
-
-        {/* Botão Gerenciar Ambientes */}
-        <Link href="/rooms" asChild>
-          <TouchableOpacity
-            style={{
-              backgroundColor: "#3A6F78",
-              padding: 16,
-              marginBottom: 12,
-            }}
-          >
-            <Text style={{ color: "#FFF", textAlign: "center", fontSize: 16 }}>
-              Gerenciar Ambientes
-            </Text>
-          </TouchableOpacity>
-        </Link>
-        <Link href="/camera/camera" asChild>
-          <TouchableOpacity
-            style={{
-              backgroundColor: "#3A6F78",
-              padding: 16,
-              marginBottom: 12,
-            }}
-          >
-            <Text style={{ color: "#FFF", textAlign: "center", fontSize: 16 }}>
-              camereaotaro
-            </Text>
-          </TouchableOpacity>
-        </Link>
-      </View>
-
-      {/* Rodapé */}
-      <Text
+      {/* HEADER ADICIONADO AQUI */}
+      <View
         style={{
-          flex: 0.2,
-          opacity: 0.5,
-          textAlign: "center",
-          fontSize: 14,
+          backgroundColor: "#3A6F78",
+          paddingHorizontal: 20,
+          paddingTop: 40,
+          paddingBottom: 15,
+          elevation: 4, // Sombra para Android
+          shadowColor: "#000", // Sombra para iOS
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.2,
+          shadowRadius: 3,
         }}
       >
-        INSISTEMS - Inventário Inteligente - v1.0
-      </Text>
+        <Text
+          style={{
+            color: "#F4F7FB",
+            fontSize: 24,
+            textAlign: "center",
+            fontFamily: "poppins-semibold",
+            fontStyle: "normal",
+            fontWeight: 600,
+            letterSpacing: 0.312,
+          }}
+        >
+          Inventário Inteligente
+        </Text>
+      </View>
 
-      {/* Modal de importação */}
-      <ImportModal
-        visible={showImportModal}
-        onClose={() => setShowImportModal(false)}
-        onProceed={handleProceed}
-      />
-    </View>
+      <View
+        style={{
+          flex: 1,
+          padding: 20,
+          paddingTop: 30, // Reduzido porque agora tem header
+          paddingLeft: 34,
+          paddingRight: 34,
+          justifyContent: "space-between",
+        }}
+      >
+        <View>
+          <Text
+            style={{
+              fontFamily: "poppins",
+              fontSize: 32,
+              fontWeight: "medium",
+              marginBottom: 10,
+              color: "#373F51",
+              letterSpacing: 0.416,
+            }}
+          >
+            Inicie{"\n"}a sua coleta
+          </Text>
+
+          <Text style={{ fontSize: 20, opacity: 0.7, marginBottom: 30 }}>
+            Importe o arquivo da lista de{"\n"}demandas para iniciar o seu{"\n"}
+            inventário
+          </Text>
+
+          {/* Botão Importar Lista */}
+          <TouchableOpacity
+            onPress={() => setShowImportModal(true)}
+            style={{
+              backgroundColor: "#3A6F78",
+              padding: 17,
+              marginBottom: 24,
+            }}
+          >
+            <Text
+              style={{
+                color: "#F4F7FB",
+                textAlign: "center",
+                fontSize: 20,
+                fontFamily: "poppins",
+                fontWeight: "semibold",
+                letterSpacing: 0.26,
+              }}
+            >
+              Importar Lista
+            </Text>
+          </TouchableOpacity>
+
+          {/* Botão Continuar Coleta (desativado) */}
+          <TouchableOpacity
+            disabled
+            style={{
+              backgroundColor: "#FFF",
+              padding: 17,
+              marginBottom: 24,
+              opacity: 0.6,
+              borderWidth: 1,
+              borderColor: "#A4A4A4",
+              borderStyle: "solid",
+            }}
+          >
+            <Text
+              style={{
+                color: "#3A6F78",
+                textAlign: "center",
+                fontSize: 20,
+                fontFamily: "poppins",
+                fontWeight: "semibold",
+                letterSpacing: 0.26,
+              }}
+            >
+              Continuar Coleta
+            </Text>
+          </TouchableOpacity>
+
+          {/* Botão Relatórios (desativado) */}
+          <TouchableOpacity
+            disabled
+            style={{
+              backgroundColor: "#FFF",
+              padding: 17,
+              marginBottom: 24,
+              opacity: 0.6,
+              borderWidth: 1,
+              borderColor: "#A4A4A4",
+              borderStyle: "solid",
+            }}
+          >
+            <Text
+              style={{
+                color: "#3A6F78",
+                textAlign: "center",
+                fontSize: 20,
+                fontFamily: "poppins",
+                fontWeight: "semibold",
+                letterSpacing: 0.26,
+              }}
+            >
+              Relatórios
+            </Text>
+          </TouchableOpacity>
+
+          {/* Botão Gerenciar Ambientes */}
+          <Link href="/rooms" asChild>
+            <TouchableOpacity
+              style={{
+                backgroundColor: "#3A6F78",
+                padding: 17,
+                marginBottom: 24,
+              }}
+            >
+              <Text
+                style={{
+                  color: "#F4F7FB",
+                  textAlign: "center",
+                  fontSize: 20,
+                  fontFamily: "poppins",
+                  fontWeight: "semibold",
+                  letterSpacing: 0.26,
+                }}
+              >
+                Gerenciar Ambientes
+              </Text>
+            </TouchableOpacity>
+          </Link>
+        </View>
+
+        {/* Rodapé */}
+        <Text
+          style={{
+            opacity: 0.5,
+            textAlign: "center",
+            fontSize: 14,
+            marginTop: 20,
+            marginBottom: 10,
+          }}
+        >
+          INSISTEMS - Inventário Inteligente - v1.0
+        </Text>
+
+        {/* Modal de importação */}
+        <ImportModal
+          visible={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          onProceed={handleProceed}
+        />
+      </View>
+    </SafeAreaView>
   );
 }
