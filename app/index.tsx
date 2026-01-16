@@ -1,7 +1,9 @@
 // app/index.tsx
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Link, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  Alert,
   SafeAreaView,
   StatusBar,
   Text,
@@ -15,15 +17,104 @@ interface Ativo {
   nome: string;
 }
 
+const STORAGE_KEY = "@insistems:lista_ativos";
+const FILE_NAME_KEY = "@insistems:file_name";
+
 export default function Home() {
   const [showImportModal, setShowImportModal] = useState(false);
+  const [hasSavedList, setHasSavedList] = useState(false);
+  const [savedFileName, setSavedFileName] = useState("");
+  const [savedItemCount, setSavedItemCount] = useState(0);
+  const [isCheckingStorage, setIsCheckingStorage] = useState(true); // Novo estado para controlar a verificação
   const router = useRouter();
+
+  // Carrega a lista salva quando a tela é aberta
+  useEffect(() => {
+    const checkAndNavigate = async () => {
+      try {
+        const listaJson = await AsyncStorage.getItem(STORAGE_KEY);
+        const fileName = await AsyncStorage.getItem(FILE_NAME_KEY);
+
+        if (listaJson) {
+          const lista = JSON.parse(listaJson);
+          setHasSavedList(true);
+          setSavedItemCount(lista.length);
+          setSavedFileName(fileName || "Lista salva");
+
+          // Navega automaticamente para home2
+          router.replace({
+            pathname: "/home2",
+            params: {
+              ativos: listaJson,
+              fileName: fileName || "Lista salva",
+              total: lista.length.toString(),
+            },
+          });
+        } else {
+          setHasSavedList(false);
+        }
+      } catch (error) {
+        console.error("Erro ao carregar lista salva:", error);
+        setHasSavedList(false);
+      } finally {
+        setIsCheckingStorage(false);
+      }
+    };
+
+    checkAndNavigate();
+  }, []);
+
+  // Função para limpar a lista salva
+  const limparListaSalva = async () => {
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEY);
+      await AsyncStorage.removeItem(FILE_NAME_KEY);
+      await AsyncStorage.removeItem("@insistems:import_date");
+
+      setHasSavedList(false);
+      setSavedFileName("");
+      setSavedItemCount(0);
+
+      Alert.alert("Sucesso", "Lista salva foi removida");
+    } catch (error) {
+      console.error("Erro ao limpar lista:", error);
+      Alert.alert("Erro", "Não foi possível limpar a lista salva");
+    }
+  };
+
+  // Função para continuar com a lista salva (agora não é mais necessária para o botão, mas mantida para eventualidades)
+  const continuarComListaSalva = async () => {
+    try {
+      const listaJson = await AsyncStorage.getItem(STORAGE_KEY);
+      const fileName = await AsyncStorage.getItem(FILE_NAME_KEY);
+
+      if (!listaJson) {
+        Alert.alert("Erro", "Não há lista salva para continuar");
+        return;
+      }
+
+      const ativos = JSON.parse(listaJson);
+
+      router.push({
+        pathname: "/home2",
+        params: {
+          ativos: listaJson,
+          fileName: fileName || "Lista salva",
+          total: ativos.length.toString(),
+        },
+      });
+    } catch (error) {
+      console.error("Erro ao continuar com lista salva:", error);
+      Alert.alert("Erro", "Não foi possível carregar a lista salva");
+    }
+  };
 
   // Função chamada quando clica em "Prosseguir" no modal
   const handleProceed = (ativos: Ativo[], fileName: string) => {
     console.log("Navegando para home2 com:", ativos.length, "itens");
 
-    router.push({
+    // Note: a lista já foi salva no AsyncStorage pelo modal
+    router.replace({
       pathname: "/home2",
       params: {
         ativos: JSON.stringify(ativos),
@@ -31,13 +122,19 @@ export default function Home() {
         total: ativos.length.toString(),
       },
     });
+
+    // Atualiza o estado para refletir que agora tem uma lista salva
+    setHasSavedList(true);
+    setSavedItemCount(ativos.length);
+    setSavedFileName(fileName);
   };
 
+  // Se não tem lista salva, mostra a tela Home normal
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#E6F0F2" }}>
       <StatusBar backgroundColor="#3A6F78" barStyle="light-content" />
 
-      {/* HEADER ADICIONADO AQUI */}
+      {/* HEADER */}
       <View
         style={{
           backgroundColor: "#3A6F78",
@@ -90,7 +187,14 @@ export default function Home() {
             Inicie{"\n"}a sua coleta
           </Text>
 
-          <Text style={{ fontSize: 20, opacity: 0.7, marginBottom: 30 }}>
+          <Text
+            style={{
+              fontSize: 20,
+              opacity: 0.7,
+              marginBottom: 30,
+              lineHeight: 28,
+            }}
+          >
             Importe o arquivo da lista de{"\n"}demandas para iniciar o seu{"\n"}
             inventário
           </Text>
@@ -118,7 +222,7 @@ export default function Home() {
             </Text>
           </TouchableOpacity>
 
-          {/* Botão Continuar Coleta (desativado) */}
+          {/* Botão Continuar Coleta (desativado porque não tem lista) */}
           <TouchableOpacity
             disabled
             style={{

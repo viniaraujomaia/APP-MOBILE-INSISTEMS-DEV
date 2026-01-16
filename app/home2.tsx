@@ -1,18 +1,54 @@
-// importacoes
-import { Link, useRouter } from "expo-router";
-import React from "react";
+// app/home2.tsx
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import {
   SafeAreaView,
   StatusBar,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 
-//componente principal
+interface Ativo {
+  id: string;
+  nome: string;
+}
+
+const STORAGE_KEY = "@insistems:lista_ativos";
+const FILE_NAME_KEY = "@insistems:file_name";
+
 export default function Home2() {
-  //router para navegacao
   const router = useRouter();
+  const [ativos, setAtivos] = useState<Ativo[]>([]);
+  const [fileName, setFileName] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+
+        // Carrega do AsyncStorage
+        console.log("Carregando do AsyncStorage...");
+        const listaJson = await AsyncStorage.getItem(STORAGE_KEY);
+        const storedFileName = await AsyncStorage.getItem(FILE_NAME_KEY);
+
+        if (listaJson) {
+          const ativosArray = JSON.parse(listaJson);
+          setAtivos(ativosArray);
+          setFileName(storedFileName || "Lista salva");
+        }
+      } catch (error) {
+        console.error("Erro ao carregar dados:", error);
+        router.push("/"); // CORREÇÃO AQUI
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#E6F0F2" }}>
@@ -25,8 +61,8 @@ export default function Home2() {
           paddingHorizontal: 20,
           paddingTop: 40,
           paddingBottom: 15,
-          elevation: 4, // Sombra para Android
-          shadowColor: "#000", // Sombra para iOS
+          elevation: 4,
+          shadowColor: "#000",
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.2,
           shadowRadius: 3,
@@ -47,7 +83,6 @@ export default function Home2() {
         </Text>
       </View>
 
-      {/* CONTEÚDO PRINCIPAL */}
       <View
         style={{
           flex: 1,
@@ -55,7 +90,7 @@ export default function Home2() {
           padding: 20,
           paddingTop: 45,
           paddingHorizontal: 34,
-          paddingBottom: 80, // Adicionado espaço para o footer não cobrir conteúdo
+          justifyContent: "space-between",
         }}
       >
         <View>
@@ -157,137 +192,62 @@ export default function Home2() {
             </Text>
           </TouchableOpacity>
 
-          <Link href="/rooms" asChild>
-            <TouchableOpacity
+          <TouchableOpacity
+            onPress={() => router.push("/rooms")}
+            style={{
+              backgroundColor: "#3A6F78",
+              padding: 17,
+              marginBottom: 24,
+            }}
+          >
+            <Text
               style={{
-                backgroundColor: "#3A6F78",
-                padding: 17,
-                marginBottom: 24,
+                color: "#F4F7FB",
+                textAlign: "center",
+                fontSize: 20,
+                fontFamily: "poppins",
+                fontWeight: "semibold",
+                letterSpacing: 0.26,
               }}
             >
-              <Text
-                style={{
-                  color: "#F4F7FB",
-                  textAlign: "center",
-                  fontSize: 20,
-                  fontFamily: "poppins",
-                  fontWeight: "semibold",
-                  letterSpacing: 0.26,
-                }}
-              >
-                Gerenciar Ambientes
-              </Text>
-            </TouchableOpacity>
-          </Link>
+              Gerenciar Ambientes
+            </Text>
+          </TouchableOpacity>
+
+          {/* Botão para voltar e limpar lista */}
+          <TouchableOpacity
+            onPress={async () => {
+              await AsyncStorage.removeItem(STORAGE_KEY);
+              await AsyncStorage.removeItem(FILE_NAME_KEY);
+              router.push("/"); // CORREÇÃO AQUI
+            }}
+            style={{
+              backgroundColor: "#FF6B6B",
+              padding: 17,
+              marginBottom: 24,
+            }}
+          >
+            <Text
+              style={{
+                color: "#FFF",
+                textAlign: "center",
+                fontSize: 20,
+                fontFamily: "poppins",
+                fontWeight: "semibold",
+                letterSpacing: 0.26,
+              }}
+            >
+              Limpar Lista e Voltar
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Texto do rodapé removido e substituído pelo footer abaixo */}
+        <Text
+          style={{ flex: 0.2, opacity: 0.5, textAlign: "center", fontSize: 14 }}
+        >
+          INSISTEMS - Inventário Inteligente - v1.0
+        </Text>
       </View>
-
-      {/* FOOTER FIXO COM 3 BOTÕES */}
-      <View
-        style={{
-          backgroundColor: "#3A6F78",
-          borderTopWidth: 1,
-          borderTopColor: "#3A6F78",
-          flexDirection: "row",
-          justifyContent: "space-around",
-          alignItems: "center",
-
-          // Para ficar fixo na parte inferior
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          right: 0,
-          top: 900,
-        }}
-      >
-        {/* Botão 1 - Início */}
-        <TouchableOpacity
-          style={{
-            alignItems: "center",
-
-            paddingVertical: 8,
-            flex: 1,
-
-            backgroundColor: "#3A6F78",
-          }}
-          onPress={() => router.push("/")} // Navega para a home
-        >
-          <Text
-            style={{
-              color: "#FFF",
-              fontSize: 14,
-              fontWeight: "600",
-              fontFamily: "poppins",
-            }}
-          >
-            Início
-          </Text>
-        </TouchableOpacity>
-
-        {/* Botão 2 - home */}
-        <TouchableOpacity
-          style={{
-            alignItems: "center",
-            paddingVertical: 8,
-            flex: 1,
-
-            backgroundColor: "#3A6F78",
-          }}
-          onPress={() => {
-            // Se já está na tela de coletas, podemos apenas rolar para o topo
-            // ou navegar para uma tela específica de coletas
-            console.log("Coletas pressionado");
-          }}
-        >
-          <Text
-            style={{
-              color: "#FFF",
-              fontSize: 14,
-              fontWeight: "600",
-              fontFamily: "poppins",
-            }}
-          >
-            home
-          </Text>
-        </TouchableOpacity>
-
-        {/* Botão 3 - camera */}
-        <TouchableOpacity
-          style={{
-            alignItems: "center",
-
-            paddingVertical: 8,
-            flex: 1,
-
-            backgroundColor: "#3A6F78",
-          }}
-          onPress={() => router.push("/camera/camera")}
-        >
-          <Text
-            style={{
-              color: "#FFF",
-              fontSize: 14,
-              fontWeight: "600",
-              fontFamily: "poppins",
-            }}
-          >
-            camera
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Texto da versão no rodapé (opcional - pode remover se quiser) */}
-      <View
-        style={{
-          position: "absolute",
-          bottom: 70, // Acima do footer
-          left: 0,
-          right: 0,
-          alignItems: "center",
-        }}
-      ></View>
     </SafeAreaView>
   );
 }

@@ -1,14 +1,14 @@
 // app/import/index.tsx
+import AsyncStorage from "@react-native-async-storage/async-storage"; // Importe o AsyncStorage
 import * as DocumentPicker from "expo-document-picker";
 import { useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Modal,
-  ScrollView,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import * as XLSX from "xlsx";
 
@@ -20,8 +20,11 @@ interface Ativo {
 interface ImportModalProps {
   visible: boolean;
   onClose: () => void;
-  onProceed: (ativos: Ativo[], fileName: string) => void; // Mudei o nome para ficar mais claro
+  onProceed: (ativos: Ativo[], fileName: string) => void;
 }
+
+const STORAGE_KEY = "@insistems:lista_ativos";
+const FILE_NAME_KEY = "@insistems:file_name";
 
 export default function ImportModal({
   visible,
@@ -32,6 +35,35 @@ export default function ImportModal({
   const [loading, setLoading] = useState(false);
   const [fileName, setFileName] = useState("");
   const [importSuccess, setImportSuccess] = useState(false);
+
+  // Função para salvar no AsyncStorage
+  const salvarListaNoStorage = async (
+    listaAtivos: Ativo[],
+    nomeArquivo: string,
+  ) => {
+    try {
+      // Salva a lista de ativos
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(listaAtivos));
+      // Salva o nome do arquivo
+      await AsyncStorage.setItem(FILE_NAME_KEY, nomeArquivo);
+      // Salva a data de importação
+      await AsyncStorage.setItem(
+        "@insistems:import_date",
+        new Date().toISOString(),
+      );
+
+      console.log(
+        "Lista salva com sucesso! Total de itens:",
+        listaAtivos.length,
+      );
+    } catch (error) {
+      console.error("Erro ao salvar lista:", error);
+      Alert.alert(
+        "Aviso",
+        "Lista importada, mas houve um erro ao salvar localmente.",
+      );
+    }
+  };
 
   const importExcelFile = async () => {
     try {
@@ -89,7 +121,17 @@ export default function ImportModal({
         }
       }
 
+      if (novosAtivos.length === 0) {
+        Alert.alert("Aviso", "Nenhum dado válido encontrado no arquivo.");
+        setLoading(false);
+        return;
+      }
+
       setAtivos(novosAtivos);
+
+      // SALVA NO ASYNC STORAGE IMEDIATAMENTE APÓS IMPORTAR
+      await salvarListaNoStorage(novosAtivos, file.name);
+
       setImportSuccess(true);
     } catch (error: any) {
       console.error("Erro na importação:", error);
@@ -99,11 +141,21 @@ export default function ImportModal({
     }
   };
 
-  // Nova função para quando clicar em "Prosseguir"
-  const handleProceed = () => {
+  const handleProceed = async () => {
     if (ativos.length === 0) {
       Alert.alert("Aviso", "Nenhum dado importado para prosseguir");
       return;
+    }
+
+    // Verifica se salvou no AsyncStorage
+    try {
+      const listaSalva = await AsyncStorage.getItem(STORAGE_KEY);
+      if (!listaSalva) {
+        // Se não salvou, salva agora
+        await salvarListaNoStorage(ativos, fileName);
+      }
+    } catch (error) {
+      console.error("Erro ao verificar storage:", error);
     }
 
     // Chama a função passada pelo pai (Home)
@@ -215,33 +267,6 @@ export default function ImportModal({
               )}
             </TouchableOpacity>
           )}
-
-          {/* Lista de ativos importados */}
-          {importSuccess && ativos.length > 0 && (
-            <ScrollView style={{ maxHeight: 200, marginBottom: 16 }}>
-              <Text style={{ fontWeight: "600", marginBottom: 8 }}>
-                Itens importados:
-              </Text>
-              {ativos.slice(0, 10).map((ativo, index) => (
-                <View
-                  key={ativo.id}
-                  style={{
-                    padding: 8,
-                    marginBottom: 4,
-                    backgroundColor: index % 2 === 0 ? "#f5f5f5" : "#fff",
-                  }}
-                >
-                  <Text style={{ fontSize: 14 }}>
-                    <Text style={{ fontWeight: "bold" }}>
-                      {ativo.id.split("-")[0]}
-                    </Text>{" "}
-                    - {ativo.nome}
-                  </Text>
-                </View>
-              ))}
-            </ScrollView>
-          )}
-
           {/* Botões APÓS importação bem-sucedida */}
           {importSuccess && (
             <View
