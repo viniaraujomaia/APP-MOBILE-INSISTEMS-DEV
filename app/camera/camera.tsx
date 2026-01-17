@@ -1,20 +1,24 @@
 // app/camera/camera.tsx
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router"; // ADICIONE ESTA IMPORT
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
   NativeSyntheticEvent,
   NativeTouchEvent,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import {
   Camera,
+  CameraRuntimeError,
   Code,
   useCameraDevice,
+  useCameraPermission,
   useCodeScanner,
 } from "react-native-vision-camera";
 
@@ -35,7 +39,9 @@ interface Ativo {
 const STORAGE_KEY = "@insistems:lista_ativos";
 
 export default function CameraScreen() {
-  const router = useRouter(); // ADICIONE ESTE HOOK
+  const router = useRouter();
+  const params = useLocalSearchParams<{ ambiente?: string }>();
+
   const [scannedCode, setScannedCode] = useState<ScannedCodeType>(null);
   const [isManualScanActive, setIsManualScanActive] = useState(false);
   const [isFocusing, setIsFocusing] = useState(false);
@@ -43,90 +49,178 @@ export default function CameraScreen() {
   const [isCodeValid, setIsCodeValid] = useState<boolean | null>(null);
   const [codigoEncontrado, setCodigoEncontrado] = useState<Ativo | null>(null);
   const [cameraActive, setCameraActive] = useState(true);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [ambiente, setAmbiente] = useState<string>("Geral");
 
+  // Hook de permissão da Vision Camera
+  const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice("back");
   const cameraRef = useRef<Camera>(null);
 
-  // Carrega a lista do AsyncStorage quando o componente monta
+  // Solicitar permissões e carregar lista
   useEffect(() => {
-    const carregarLista = async () => {
+    const initializeCamera = async () => {
       try {
-        const listaJson = await AsyncStorage.getItem(STORAGE_KEY);
-        if (listaJson) {
-          const lista = JSON.parse(listaJson);
-          setAtivosLista(lista);
-          console.log(`✅ Lista carregada: ${lista.length} itens`);
-        } else {
-          console.log("⚠️ Nenhuma lista encontrada no AsyncStorage");
-          Alert.alert(
-            "Aviso",
-            "Nenhuma lista importada encontrada.\n\nPor favor, importe uma lista primeiro na tela principal.",
-            [
-              {
-                text: "Voltar",
-                onPress: () => router.push("/"), // NAVEGA PARA HOME
-              },
-            ],
-          );
+        console.log("📱 Inicializando câmera...");
+
+        // 1. Definir ambiente (se veio como parâmetro ou padrão "Geral")
+        if (params.ambiente) {
+          setAmbiente(params.ambiente.toString());
+          console.log(`📍 Ambiente definido: ${params.ambiente}`);
         }
+
+        // 2. Verificar e solicitar permissões
+        if (!hasPermission) {
+          console.log("🔒 Solicitando permissão da câmera...");
+          const granted = await requestPermission();
+          if (!granted) {
+            Alert.alert(
+              "Permissão necessária",
+              "Precisamos da permissão para usar a câmera para escanear códigos.",
+              [
+                {
+                  text: "Configurar",
+                  onPress: () => router.back(),
+                },
+              ],
+            );
+            return;
+          }
+        }
+
+        // 3. Carregar lista do AsyncStorage
+        await carregarListaAtivos();
+
+        // 4. Aguardar um pouco para garantir que tudo está carregado
+        setTimeout(() => setIsLoading(false), 500);
       } catch (error) {
-        console.error("❌ Erro ao carregar lista:", error);
+        console.error("❌ Erro na inicialização:", error);
+        setCameraError("Falha ao inicializar câmera");
+        setIsLoading(false);
       }
     };
 
-    carregarLista();
+    initializeCamera();
 
-    // Cleanup para desativar câmera quando sair da tela
+    // Cleanup
     return () => {
+      console.log("🔄 Desativando câmera...");
       setCameraActive(false);
     };
-  }, []);
+  }, [hasPermission]);
 
-  // Função para verificar se o código está na lista
+  // Função para carregar lista de ativos
+  const carregarListaAtivos = async () => {
+    try {
+      const listaJson = await AsyncStorage.getItem(STORAGE_KEY);
+      if (listaJson) {
+        const lista = JSON.parse(listaJson);
+        setAtivosLista(lista);
+        console.log(`✅ Lista carregada: ${lista.length} itens`);
+      } else {
+        console.log("⚠️ Nenhuma lista encontrada");
+        Alert.alert(
+          "Aviso",
+          "Nenhuma lista importada encontrada.\n\nPor favor, importe uma lista primeiro na tela principal.",
+          [
+            {
+              text: "Voltar",
+              onPress: () => router.push("/"),
+            },
+          ],
+        );
+      }
+    } catch (error) {
+      console.error("❌ Erro ao carregar lista:", error);
+    }
+  };
+
+  // Handler para erros da câmera
+  const handleCameraError = useCallback(
+    (error: CameraRuntimeError) => {
+      console.error("❌ Erro na câmera:", error);
+      setCameraError(error.message);
+
+      Alert.alert(
+        "Erro na Câmera",
+        `Não foi possível iniciar a câmera: ${error.message}\n\nTente reiniciar o aplicativo.`,
+        [
+          {
+            text: "Voltar",
+            onPress: () => router.back(),
+          },
+        ],
+      );
+    },
+    [router],
+  );
+
+  // Configuração do codeScanner (MAIS SIMPLES)
+  const codeScanner = useCodeScanner({
+    codeTypes: ["qr", "ean-13", "code-128", "code-39"],
+    onCodeScanned: (codes: Code[]) => {
+      if (!isManualScanActive || codes.length === 0) return;
+
+      const code = codes[0];
+      const codigoValor = code.value || "";
+
+      // Evitar processamento duplicado
+      if (scannedCode && scannedCode.value === codigoValor) return;
+
+      console.log("✅ Código escaneado:", codigoValor);
+
+      setScannedCode({
+        value: codigoValor,
+        type: code.type || "unknown",
+      });
+
+      // Verificar se está na lista
+      const resultado = verificarCodigoNaLista(codigoValor);
+      setIsCodeValid(resultado.encontrado);
+      setCodigoEncontrado(resultado.ativo || null);
+
+      // Desativar scanner temporariamente
+      setIsManualScanActive(false);
+
+      // Navegar se encontrado
+      if (resultado.encontrado && resultado.ativo) {
+        setTimeout(() => {
+          navegarParaConfirmacao(resultado.ativo!);
+        }, 1000);
+      } else {
+        // Limpar após 3 segundos
+        setTimeout(() => {
+          setScannedCode(null);
+          setIsCodeValid(null);
+          setCodigoEncontrado(null);
+        }, 3000);
+      }
+    },
+  });
+
+  // Função para verificar código na lista
   const verificarCodigoNaLista = (
     codigo: string,
   ): { encontrado: boolean; ativo?: Ativo } => {
     if (ativosLista.length === 0) {
-      console.log("⚠️ Lista vazia, não é possível verificar");
       return { encontrado: false };
     }
 
-    // Remove espaços e formata o código para comparação
     const codigoLimpo = codigo.trim().toUpperCase();
 
-    console.log(`🔍 Verificando código: ${codigoLimpo}`);
-
-    // Procura na lista de ativos
     const ativoEncontrado = ativosLista.find((ativo) => {
       const idAtivo = ativo.id.toUpperCase();
-      const nomeAtivo = ativo.nome.toUpperCase();
-
-      // Retorna true se:
-      const encontrou =
-        idAtivo === codigoLimpo ||
-        idAtivo.includes(codigoLimpo) ||
-        codigoLimpo.includes(idAtivo.split("-")[0]) ||
-        nomeAtivo.includes(codigoLimpo);
-
-      return encontrou;
+      return idAtivo === codigoLimpo || idAtivo.includes(codigoLimpo);
     });
 
-    if (ativoEncontrado) {
-      console.log(
-        `✅ Código encontrado na lista: ${ativoEncontrado.id} - ${ativoEncontrado.nome}`,
-      );
-      return { encontrado: true, ativo: ativoEncontrado };
-    } else {
-      console.log(`❌ Código NÃO encontrado na lista: ${codigoLimpo}`);
-      return { encontrado: false };
-    }
+    return ativoEncontrado
+      ? { encontrado: true, ativo: ativoEncontrado }
+      : { encontrado: false };
   };
 
-  // Função para navegar para a tela de confirmação
+  // Navegar para confirmação - AGORA COM AMBIENTE
   const navegarParaConfirmacao = (ativo: Ativo) => {
-    console.log("🚀 Navegando para tela de confirmação...");
-
-    // Prepara os dados para passar para a próxima tela
     const dadosAtivo = {
       id: ativo.id,
       nome: ativo.nome,
@@ -134,122 +228,103 @@ export default function CameraScreen() {
       tipoCodigo: scannedCode?.type || "unknown",
     };
 
-    // Navega para a tela ConfirmItem com os parâmetros
     router.push({
       pathname: "/confirmItem/confirmItem",
       params: {
         ativo: JSON.stringify(dadosAtivo),
         dataHora: new Date().toISOString(),
+        ambiente: ambiente, // ← AMBIENTE ADICIONADO AQUI
       },
     });
   };
 
-  // Função para ativar a varredura manual
+  // Ativar varredura manual
   const activateManualScan = useCallback(() => {
-    console.log("👆 Ativando modo de varredura manual...");
+    if (isLoading) return;
+
+    console.log("👆 Ativando scanner...");
     setIsManualScanActive(true);
 
-    // Desativa a varredura após 2 segundos
     setTimeout(() => {
       setIsManualScanActive(false);
-      console.log("⏸️ Modo de varredura manual desativado.");
     }, 2000);
-  }, []);
+  }, [isLoading]);
 
-  // Manipulador de toque na tela com controle de foco
+  // Handler de toque
   const handleTap = async (event: NativeSyntheticEvent<NativeTouchEvent>) => {
     const { locationX, locationY } = event.nativeEvent;
 
-    // 1. Ativa o scanner imediatamente para responsividade
     activateManualScan();
 
-    // 2. Lida com o foco apenas se já não estiver focando
+    // Tentar foco
     if (!isFocusing && cameraRef.current && device?.supportsFocus) {
       setIsFocusing(true);
       try {
         await cameraRef.current.focus({ x: locationX, y: locationY });
-      } catch (error: any) {
-        console.log("Erro de foco (não crítico):", error.message);
+      } catch (error) {
+        console.log("Foco não disponível");
       } finally {
         setTimeout(() => setIsFocusing(false), 500);
       }
     }
   };
 
-  const codeScanner = useCodeScanner({
-    codeTypes: [
-      "qr",
-      "ean-13",
-      "ean-8",
-      "upc-a",
-      "upc-e",
-      "code-128",
-      "code-39",
-      "itf",
-      "code-93",
-    ],
-    onCodeScanned: (codes: Code[]) => {
-      // Só processa se o modo manual estiver ATIVO
-      if (!isManualScanActive) return;
+  // Tela de loading
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3A6F78" />
+        <Text style={styles.loadingText}>Preparando câmera...</Text>
+      </View>
+    );
+  }
 
-      if (codes.length > 0) {
-        const code = codes[0];
-        const codigoValor = code.value || "";
+  // Sem permissão
+  if (!hasPermission) {
+    return (
+      <View style={styles.permissionContainer}>
+        <Text style={styles.permissionTitle}>Permissão necessária</Text>
+        <Text style={styles.permissionText}>
+          Para escanear códigos, precisamos da permissão para usar a câmera.
+        </Text>
+        <TouchableOpacity
+          style={styles.permissionButton}
+          onPress={requestPermission}
+        >
+          <Text style={styles.permissionButtonText}>Conceder permissão</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
-        // Verifica se já está processando este código (evita duplicação)
-        if (scannedCode && scannedCode.value === codigoValor) {
-          console.log("⚠️ Código já processado, ignorando...");
-          return;
-        }
-
-        console.log("✅ Código escaneado (Manual):", codigoValor);
-
-        // Verifica se o código está na lista
-        const resultado = verificarCodigoNaLista(codigoValor);
-
-        setScannedCode({
-          value: codigoValor,
-          type: code.type || "unknown",
-        });
-
-        // Atualiza estado baseado na verificação
-        setIsCodeValid(resultado.encontrado);
-        setCodigoEncontrado(resultado.ativo || null);
-
-        // Desativa a varredura imediatamente após sucesso
-        setIsManualScanActive(false);
-
-        // Se encontrou o item na lista, navega para tela de confirmação
-        if (resultado.encontrado && resultado.ativo) {
-          // Espera 1 segundo para mostrar o feedback visual antes de navegar
-          setTimeout(() => {
-            navegarParaConfirmacao(resultado.ativo!);
-          }, 1000);
-        } else {
-          // Se não encontrou, apenas mostra o feedback por 5 segundos
-          setTimeout(() => {
-            setScannedCode(null);
-            setIsCodeValid(null);
-            setCodigoEncontrado(null);
-          }, 5000);
-        }
-      }
-    },
-  });
-
-  // 📱 Dispositivo não encontrado
+  // Dispositivo não encontrado
   if (!device) {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.centerText}>
-          Câmera não encontrada.{"\n"}
-          Verifique se seu dispositivo tem câmera traseira.
+          Câmera não disponível no dispositivo
         </Text>
       </View>
     );
   }
 
-  // ✅ Tudo ok - mostrar câmera
+  // Erro na câmera
+  if (cameraError) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorTitle}>Erro na Câmera</Text>
+        <Text style={styles.errorText}>{cameraError}</Text>
+        <TouchableOpacity
+          style={styles.errorButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.errorButtonText}>Voltar</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Tela principal da câmera
   return (
     <View style={styles.container} onTouchEnd={handleTap}>
       <Camera
@@ -259,9 +334,13 @@ export default function CameraScreen() {
         isActive={cameraActive}
         codeScanner={isManualScanActive ? codeScanner : undefined}
         audio={false}
+        onError={handleCameraError}
+        torch="off"
+        zoom={device.neutralZoom}
+        enableZoomGesture={false}
       />
 
-      {/* Overlay do código escaneado - AGORA COM VERIFICAÇÃO */}
+      {/* Overlay do código escaneado */}
       {scannedCode && (
         <View
           style={[
@@ -281,9 +360,7 @@ export default function CameraScreen() {
                 : "📷 "}
             Código: {scannedCode.value}
           </Text>
-          <Text style={styles.typeText}>📊 Tipo: {scannedCode.type}</Text>
 
-          {/* Mensagem de validação */}
           {isCodeValid === true && codigoEncontrado && (
             <View style={styles.validationContainer}>
               <Text style={styles.validationTextValid}>
@@ -293,6 +370,7 @@ export default function CameraScreen() {
               <Text style={styles.detailText}>
                 Nome: {codigoEncontrado.nome}
               </Text>
+              <Text style={styles.detailText}>📍 Ambiente: {ambiente}</Text>
               <Text style={styles.navigationText}>
                 🚀 Indo para confirmação...
               </Text>
@@ -302,59 +380,117 @@ export default function CameraScreen() {
           {isCodeValid === false && (
             <View style={styles.validationContainer}>
               <Text style={styles.validationTextInvalid}>
-                ❌ Este item não está na lista
-              </Text>
-              <Text style={styles.detailText}>
-                Verifique se o código está correto
+                ❌ Item não está na lista
               </Text>
             </View>
-          )}
-
-          {isCodeValid === null && (
-            <Text style={styles.validationTextNeutral}>
-              Verificando na lista...
-            </Text>
           )}
         </View>
       )}
 
-      {/* Contador de itens na lista */}
-      <View style={styles.counterOverlay}>
-        <Text style={styles.counterText}>
-          📋 Itens na lista: {ativosLista.length}
-        </Text>
-        {ativosLista.length === 0 && (
-          <Text style={styles.warningText}>⚠️ Importe uma lista primeiro!</Text>
-        )}
-      </View>
-
-      {/* Botão de voltar */}
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => router.push("/home2")}
-      >
+      {/* Botão voltar */}
+      <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
         <Text style={styles.backButtonText}>← Voltar</Text>
       </TouchableOpacity>
 
-      {/* Instruções que mudam conforme o estado */}
+      {/* Instruções - AGORA MOSTRANDO AMBIENTE */}
       <View style={styles.instructionOverlay}>
         <Text style={styles.instructionText}>
           {isManualScanActive
             ? "📷 Lendo código..."
-            : "👆 Toque na tela com o código para escanear"}
+            : "👆 Toque na tela para escanear"}
+        </Text>
+        <Text style={styles.instructionSubtext}>
+          {ativosLista.length} itens na lista | Ambiente: {ambiente}
         </Text>
       </View>
+
+      {/* Indicador de foco */}
+      {isFocusing && (
+        <View style={styles.focusIndicator}>
+          <View style={styles.focusCircle} />
+        </View>
+      )}
     </View>
   );
 }
-
-// Adicione estes novos estilos
-const TouchableOpacity = require("react-native").TouchableOpacity;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "black",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "black",
+  },
+  loadingText: {
+    color: "white",
+    marginTop: 20,
+    fontSize: 16,
+  },
+  permissionContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F4F6F8",
+    padding: 30,
+  },
+  permissionTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 10,
+    color: "#333",
+  },
+  permissionText: {
+    fontSize: 16,
+    textAlign: "center",
+    color: "#666",
+    marginBottom: 30,
+    lineHeight: 22,
+  },
+  permissionButton: {
+    backgroundColor: "#3A6F78",
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderRadius: 8,
+  },
+  permissionButtonText: {
+    color: "#FFF",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F4F6F8",
+    padding: 30,
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 10,
+    color: "#D32F2F",
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: "center",
+    color: "#666",
+    marginBottom: 30,
+    lineHeight: 22,
+  },
+  errorButton: {
+    backgroundColor: "#3A6F78",
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderRadius: 8,
+  },
+  errorButtonText: {
+    color: "#FFF",
+    fontWeight: "bold",
+    fontSize: 16,
   },
   centerContainer: {
     flex: 1,
@@ -398,11 +534,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 5,
   },
-  typeText: {
-    color: "#C8E6C9",
-    fontSize: 14,
-    marginBottom: 10,
-  },
   validationContainer: {
     marginTop: 10,
     paddingTop: 10,
@@ -423,11 +554,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 5,
   },
-  validationTextNeutral: {
-    color: "#BBDEFB",
-    fontSize: 14,
-    fontStyle: "italic",
-  },
   detailText: {
     color: "rgba(255, 255, 255, 0.8)",
     fontSize: 12,
@@ -440,39 +566,18 @@ const styles = StyleSheet.create({
     marginTop: 5,
     fontStyle: "italic",
   },
-  counterOverlay: {
-    position: "absolute",
-    top: 20,
-    right: 20,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    padding: 10,
-    borderRadius: 8,
-    alignItems: "center",
-    minWidth: 150,
-  },
-  counterText: {
-    color: "white",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  warningText: {
-    color: "#FF9800",
-    fontSize: 10,
-    marginTop: 2,
-    fontStyle: "italic",
-  },
   backButton: {
     position: "absolute",
-    top: 20,
+    top: 50,
     left: 20,
     backgroundColor: "rgba(0, 0, 0, 0.7)",
     paddingHorizontal: 15,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 8,
   },
   backButtonText: {
     color: "white",
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "600",
   },
   instructionOverlay: {
@@ -489,5 +594,24 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     textAlign: "center",
+    marginBottom: 5,
+  },
+  instructionSubtext: {
+    color: "#AAAAAA",
+    fontSize: 12,
+    textAlign: "center",
+  },
+  focusIndicator: {
+    position: "absolute",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  focusCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+    backgroundColor: "transparent",
   },
 });

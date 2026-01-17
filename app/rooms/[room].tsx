@@ -1,4 +1,4 @@
-// app/roompage.tsx
+// app/[rooms].tsx
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useLocalSearchParams } from "expo-router";
@@ -22,6 +22,8 @@ interface Ativo {
   id: string;
   nome: string;
   ambiente?: string;
+  dataVerificacao?: string;
+  tipoVerificacao?: string;
 }
 
 // Constantes para o AsyncStorage
@@ -36,21 +38,25 @@ export default function RoomPage() {
   const [codigoDigitado, setCodigoDigitado] = useState("");
   const [loading, setLoading] = useState(false);
   const [listaAtivos, setListaAtivos] = useState<Ativo[]>([]);
-  const [listaVerificados, setListaVerificados] = useState<Ativo[]>([]);
   const [totalAmbiente, setTotalAmbiente] = useState(0);
   const [verificadosAmbiente, setVerificadosAmbiente] = useState(0);
 
-  // Carrega itens do ambiente e as listas
+  // Carrega dados quando a tela abre
   useEffect(() => {
-    loadItems();
-    carregarListaAtivos();
-    carregarListaVerificados();
+    carregarDados();
   }, []);
 
-  // Carrega itens do ambiente do AsyncStorage
-  const loadItems = async () => {
-    const raw = await AsyncStorage.getItem(`items-${room}`);
-    setItems(raw ? JSON.parse(raw) : []);
+  // Função para carregar todos os dados
+  const carregarDados = async () => {
+    try {
+      // 1. Carrega lista de ativos disponíveis
+      await carregarListaAtivos();
+
+      // 2. Carrega itens já verificados
+      await carregarItensVerificados();
+    } catch (error) {
+      console.error("Erro ao carregar dados:", error);
+    }
   };
 
   // Carrega a lista de ativos do AsyncStorage
@@ -60,74 +66,51 @@ export default function RoomPage() {
       if (listaJson) {
         const lista = JSON.parse(listaJson);
         setListaAtivos(lista);
-        console.log(`📋 Lista de ativos carregada: ${lista.length} itens`);
 
-        // Calcula total de ativos no ambiente específico
+        // Calcula total de ativos no ambiente
         const ativosNoAmbiente = lista.filter((ativo: Ativo) => {
-          // Se for "Geral", inclui todos os ativos
           if (room === "Geral") return true;
-          // Se o ativo tem ambiente definido, compara com o ambiente atual
           return ativo.ambiente === room;
         });
         setTotalAmbiente(ativosNoAmbiente.length);
-      } else {
-        console.log("⚠️ Nenhuma lista de ativos encontrada");
       }
     } catch (error) {
-      console.error("❌ Erro ao carregar lista de ativos:", error);
+      console.error("Erro ao carregar lista de ativos:", error);
     }
   };
 
-  // Carrega a lista de verificados do AsyncStorage
-  const carregarListaVerificados = async () => {
+  // Carrega itens já verificados para mostrar na lista
+  const carregarItensVerificados = async () => {
     try {
       const verificadosJson = await AsyncStorage.getItem(LISTA_VERIFICADOS_KEY);
-      if (verificadosJson) {
-        const verificados = JSON.parse(verificadosJson);
-        setListaVerificados(verificados);
-        console.log(
-          `✅ Lista de verificados carregada: ${verificados.length} itens`,
-        );
 
-        // Calcula quantos verificados estão no ambiente específico
-        const verificadosNoAmbiente = verificados.filter((item: Ativo) => {
-          // Se for "Geral", inclui todos os verificados
+      if (verificadosJson) {
+        const todosVerificados: Ativo[] = JSON.parse(verificadosJson);
+
+        // Filtra apenas os itens deste ambiente
+        const itensDoAmbiente = todosVerificados.filter((item: Ativo) => {
           if (room === "Geral") return true;
-          // Se o item tem ambiente definido, compara com o ambiente atual
           return item.ambiente === room;
         });
-        setVerificadosAmbiente(verificadosNoAmbiente.length);
+
+        // Converte para o formato que sua lista espera
+        const itensParaMostrar = itensDoAmbiente.map((item) => [
+          item.id, // [0] tombamento
+          item.nome, // [1] nome
+          item.ambiente || "", // [2] ambiente
+          item.dataVerificacao || "", // [3] data
+          item.tipoVerificacao || "", // [4] tipo
+        ]);
+
+        setItems(itensParaMostrar);
+        setVerificadosAmbiente(itensDoAmbiente.length);
       } else {
-        console.log("⚠️ Nenhuma lista de verificados encontrada");
-        setListaVerificados([]);
+        setItems([]);
+        setVerificadosAmbiente(0);
       }
     } catch (error) {
-      console.error("❌ Erro ao carregar lista de verificados:", error);
-    }
-  };
-
-  // Atualiza o progresso sempre que as listas mudam
-  useEffect(() => {
-    calcularProgresso();
-  }, [listaAtivos, listaVerificados, room]);
-
-  // Função para calcular o progresso
-  const calcularProgresso = () => {
-    if (room === "Geral") {
-      // Para "Geral", conta todos os ativos e verificados
-      setTotalAmbiente(listaAtivos.length);
-      setVerificadosAmbiente(listaVerificados.length);
-    } else {
-      // Para ambientes específicos, filtra por ambiente
-      const ativosNoAmbiente = listaAtivos.filter(
-        (ativo: Ativo) => ativo.ambiente === room,
-      );
-      const verificadosNoAmbiente = listaVerificados.filter(
-        (item: Ativo) => item.ambiente === room,
-      );
-
-      setTotalAmbiente(ativosNoAmbiente.length);
-      setVerificadosAmbiente(verificadosNoAmbiente.length);
+      console.error("Erro ao carregar itens verificados:", error);
+      setItems([]);
     }
   };
 
@@ -135,7 +118,7 @@ export default function RoomPage() {
   const calcularPorcentagem = () => {
     if (totalAmbiente === 0) return 0;
     const porcentagem = (verificadosAmbiente / totalAmbiente) * 100;
-    return Math.min(porcentagem, 100); // Limita a 100%
+    return Math.min(porcentagem, 100);
   };
 
   // Função para verificar se o código está na lista
@@ -143,44 +126,24 @@ export default function RoomPage() {
     codigo: string,
   ): { encontrado: boolean; ativo?: Ativo } => {
     if (listaAtivos.length === 0) {
-      console.log("⚠️ Lista de ativos vazia");
       return { encontrado: false };
     }
 
     const codigoLimpo = codigo.trim();
-    console.log(`🔍 Verificando código digitado: ${codigoLimpo}`);
 
     // Procura na lista de ativos
     const ativoEncontrado = listaAtivos.find((ativo) => {
       const idAtivo = ativo.id;
-      const nomeAtivo = ativo.nome.toUpperCase();
-
-      // Remove caracteres não numéricos para comparação (se necessário)
-      const codigoNumerico = codigoLimpo.replace(/\D/g, "");
-      const idNumerico = idAtivo.replace(/\D/g, "");
-
-      // Verifica várias possibilidades de correspondência
       return (
-        // Correspondência exata
         idAtivo === codigoLimpo ||
-        // O ID contém o código digitado
         idAtivo.includes(codigoLimpo) ||
-        // O código digitado contém o ID (ou parte dele)
-        codigoLimpo.includes(idAtivo.split("-")[0]) ||
-        // O código está no nome (pode conter números também)
-        nomeAtivo.includes(codigoLimpo.toUpperCase()) ||
-        // Comparação numérica (apenas números)
-        (codigoNumerico && idNumerico.includes(codigoNumerico))
+        codigoLimpo.includes(idAtivo.split("-")[0])
       );
     });
 
     if (ativoEncontrado) {
-      console.log(
-        `✅ Código encontrado na lista: ${ativoEncontrado.id} - ${ativoEncontrado.nome}`,
-      );
       return { encontrado: true, ativo: ativoEncontrado };
     } else {
-      console.log(`❌ Código NÃO encontrado na lista: ${codigoLimpo}`);
       return { encontrado: false };
     }
   };
@@ -198,16 +161,13 @@ export default function RoomPage() {
     const resultado = verificarCodigoNaLista(codigoDigitado);
 
     if (resultado.encontrado && resultado.ativo) {
-      // Se encontrou, navega para a tela de confirmação
-      console.log("🚀 Navegando para tela de confirmação...");
-
       // Prepara os dados para passar para a próxima tela
       const dadosAtivo = {
         id: resultado.ativo.id,
         nome: resultado.ativo.nome,
         codigoEscaneado: codigoDigitado,
         tipoCodigo: "manual",
-        ambiente: room, // Adiciona o ambiente atual
+        ambiente: resultado.ativo.ambiente || room,
       };
 
       // Fecha o modal
@@ -215,33 +175,22 @@ export default function RoomPage() {
       setCodigoDigitado("");
 
       // Navega para a tela ConfirmItem
-      setTimeout(() => {
-        router.push({
-          pathname: "/confirmItem/confirmItem",
-          params: {
-            ativo: JSON.stringify(dadosAtivo),
-            dataHora: new Date().toISOString(),
-          },
-        });
-      }, 300);
+      router.push({
+        pathname: "/confirmItem/confirmItem",
+        params: {
+          ativo: JSON.stringify(dadosAtivo),
+          ambiente: room,
+        },
+      });
     } else {
-      // Se não encontrou, mostra alerta
       Alert.alert(
         "Código não encontrado",
-        "Este código não está na lista importada.\n\nVerifique se digitou corretamente ou se o item foi incluído na planilha.",
+        "Este código não está na lista importada.",
         [
           {
-            text: "Tentar novamente",
-            onPress: () => {
-              setLoading(false);
-            },
-          },
-          {
-            text: "Cancelar",
-            style: "cancel",
+            text: "OK",
             onPress: () => {
               setShowModal(false);
-              setLoading(false);
               setCodigoDigitado("");
             },
           },
@@ -252,12 +201,38 @@ export default function RoomPage() {
     setLoading(false);
   };
 
-  // Exclui item pelo índice
-  const deleteItem = async (index: number) => {
-    const updated = items.filter((_, i) => i !== index);
-    await AsyncStorage.setItem(`items-${room}`, JSON.stringify(updated));
-    setExpandedIndex(null);
-    loadItems();
+  // Remove um item verificado da lista
+  const removerItemVerificado = async (index: number) => {
+    try {
+      const itemParaRemover = items[index];
+      const itemId = itemParaRemover[0]; // ID está na posição 0 do array
+
+      // Carrega todos os verificados
+      const verificadosJson = await AsyncStorage.getItem(LISTA_VERIFICADOS_KEY);
+      if (verificadosJson) {
+        const todosVerificados: Ativo[] = JSON.parse(verificadosJson);
+
+        // Remove o item específico
+        const novosVerificados = todosVerificados.filter(
+          (item) => !(item.id === itemId && item.ambiente === room),
+        );
+
+        // Salva de volta
+        await AsyncStorage.setItem(
+          LISTA_VERIFICADOS_KEY,
+          JSON.stringify(novosVerificados),
+        );
+
+        // Atualiza a lista local
+        await carregarItensVerificados();
+        setExpandedIndex(null);
+
+        Alert.alert("Sucesso", "Item removido da lista de verificados");
+      }
+    } catch (error) {
+      console.error("Erro ao remover item:", error);
+      Alert.alert("Erro", "Não foi possível remover o item");
+    }
   };
 
   // Abre o modal para digitar código
@@ -281,6 +256,16 @@ export default function RoomPage() {
   // Calcula a porcentagem atual
   const progressPercentage = calcularPorcentagem();
 
+  // Navega para a câmera passando o ambiente atual
+  const navegarParaCamera = () => {
+    router.push({
+      pathname: "/camera/camera",
+      params: {
+        ambiente: room,
+      },
+    });
+  };
+
   return (
     <View style={styles.container}>
       {/* Cabeçalho */}
@@ -291,7 +276,7 @@ export default function RoomPage() {
       {/* Título do progresso */}
       <Text style={styles.sectionTitle}>Seu progresso</Text>
 
-      {/* Barra de progresso DINÂMICA */}
+      {/* Barra de progresso */}
       <View style={styles.progressBar}>
         <View
           style={[
@@ -305,7 +290,7 @@ export default function RoomPage() {
         />
       </View>
 
-      {/* Texto do progresso DINÂMICO */}
+      {/* Texto do progresso */}
       <Text style={styles.progressText}>
         {totalAmbiente === 0
           ? "Nenhum item neste ambiente"
@@ -324,17 +309,26 @@ export default function RoomPage() {
 
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => router.push("/camera/camera")}
+          onPress={navegarParaCamera}
         >
           <Ionicons name="camera-outline" size={50} color="#fff" />
           <Text style={styles.actionText}>Usar câmera</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Lista de itens */}
+      {/* Lista de itens JÁ VERIFICADOS */}
       <ScrollView style={styles.scrollView}>
+        <Text style={styles.listaTitle}>
+          Itens Verificados ({items.length})
+        </Text>
+
         {items.length === 0 ? (
-          <Text style={styles.emptyText}>Nenhum item cadastrado ainda</Text>
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>Nenhum item verificado ainda</Text>
+            <Text style={styles.emptySubtext}>
+              Use os botões acima para começar
+            </Text>
+          </View>
         ) : (
           items.map((item, index) => {
             const expanded = expandedIndex === index;
@@ -362,12 +356,23 @@ export default function RoomPage() {
                 {expanded && (
                   <View style={styles.itemDetails}>
                     <Text style={styles.detailText}>Tombamento: {item[0]}</Text>
-                    <Text style={styles.detailText}>Tipo: {item[2]}</Text>
+                    <Text style={styles.detailText}>Nome: {item[1]}</Text>
+                    {item[2] && (
+                      <Text style={styles.detailText}>Ambiente: {item[2]}</Text>
+                    )}
+                    {item[3] && (
+                      <Text style={styles.detailText}>
+                        Verificado em: {item[3]}
+                      </Text>
+                    )}
+                    {item[4] && (
+                      <Text style={styles.detailText}>Método: {item[4]}</Text>
+                    )}
                     <TouchableOpacity
                       style={styles.deleteButton}
-                      onPress={() => deleteItem(index)}
+                      onPress={() => removerItemVerificado(index)}
                     >
-                      <Text style={styles.deleteText}>Excluir</Text>
+                      <Text style={styles.deleteText}>Remover verificação</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -414,29 +419,22 @@ export default function RoomPage() {
                   </Text>
                 </View>
 
-                {/* Campo de entrada com teclado numérico */}
+                {/* Campo de entrada */}
                 <View style={styles.inputContainer}>
                   <TextInput
                     style={styles.modalInput}
                     placeholder="Ex: 12345 ou 123-1"
                     value={codigoDigitado}
                     onChangeText={(text) => {
-                      // Permite apenas números, hífens e barras (comuns em tombamentos)
                       const formattedText = text.replace(/[^0-9\-/\s]/g, "");
                       setCodigoDigitado(formattedText);
                     }}
                     autoFocus={true}
-                    keyboardType="numeric" // Teclado numérico com alguns símbolos
+                    keyboardType="numeric"
                     maxLength={20}
                     returnKeyType="done"
                     onSubmitEditing={handleConfirmarCodigo}
                     blurOnSubmit={false}
-                    placeholderTextColor="#999"
-                    selectionColor="#3a6f78"
-                    textContentType="none"
-                    autoCorrect={false}
-                    autoCapitalize="none"
-                    spellCheck={false}
                   />
                   {codigoDigitado.length > 0 && (
                     <TouchableOpacity
@@ -488,18 +486,6 @@ export default function RoomPage() {
                     )}
                   </TouchableOpacity>
                 </View>
-
-                {/* Dica para usuário */}
-                <View style={styles.tipContainer}>
-                  <Ionicons
-                    name="information-circle-outline"
-                    size={16}
-                    color="#3a6f78"
-                  />
-                  <Text style={styles.tipText}>
-                    Dica: O tombamento geralmente contém apenas números
-                  </Text>
-                </View>
               </View>
             </TouchableWithoutFeedback>
           </View>
@@ -509,7 +495,7 @@ export default function RoomPage() {
   );
 }
 
-// Estilos (mantidos iguais)
+// Estilos
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -552,6 +538,13 @@ const styles = StyleSheet.create({
     color: "#666",
     marginBottom: 20,
   },
+  listaTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 15,
+    marginTop: 10,
+  },
   actionRow: {
     flexDirection: "row",
     marginBottom: 20,
@@ -563,11 +556,6 @@ const styles = StyleSheet.create({
     padding: 14,
     alignItems: "center",
     borderRadius: 8,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1,
   },
   actionText: {
     color: "#fff",
@@ -579,15 +567,30 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  emptyContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 40,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+  },
+  emptyText: {
+    opacity: 0.5,
+    textAlign: "center",
+    fontSize: 16,
+    color: "#666",
+  },
+  emptySubtext: {
+    opacity: 0.5,
+    textAlign: "center",
+    marginTop: 10,
+    fontSize: 14,
+    color: "#999",
+  },
   itemCard: {
     backgroundColor: "#fff",
     borderRadius: 8,
     marginBottom: 10,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
     overflow: "hidden",
   },
   itemRow: {
@@ -597,7 +600,7 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   itemTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
     color: "#333",
     flex: 1,
@@ -633,13 +636,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 14,
   },
-  emptyText: {
-    opacity: 0.5,
-    textAlign: "center",
-    marginVertical: 20,
-    fontSize: 16,
-    color: "#666",
-  },
   finishButton: {
     backgroundColor: "#3a6f78",
     padding: 15,
@@ -647,7 +643,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 20,
     marginBottom: 40,
-    elevation: 2,
   },
   finishText: {
     color: "#fff",
@@ -669,11 +664,6 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 400,
     padding: 20,
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
   },
   modalHeader: {
     flexDirection: "row",
@@ -722,7 +712,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontWeight: "600",
     color: "#333",
-    paddingRight: 40, // Espaço para o botão de limpar
+    paddingRight: 40,
   },
   clearButton: {
     position: "absolute",
@@ -781,20 +771,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#fff",
     fontWeight: "bold",
-  },
-  tipContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#f0f7ff",
-    padding: 10,
-    borderRadius: 6,
-    marginTop: 10,
-  },
-  tipText: {
-    fontSize: 12,
-    color: "#3a6f78",
-    marginLeft: 5,
-    fontStyle: "italic",
   },
 });

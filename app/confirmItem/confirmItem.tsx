@@ -1,17 +1,18 @@
 // app/confirmItem/confirmItem.tsx
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
-    Alert,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import { adicionarItemVerificado } from "../services/verificados";
 
 interface AtivoConfirmacao {
   id: string;
@@ -20,471 +21,359 @@ interface AtivoConfirmacao {
   tipoCodigo: string;
 }
 
-const STORAGE_KEY_VERIFICADOS = "@insistems:itens_verificados";
-
 export default function ConfirmItem() {
-  const router = useRouter();
-  const params = useLocalSearchParams();
+  const params = useLocalSearchParams<{
+    ativo: string;
+    ambiente?: string;
+  }>();
+
   const [ativo, setAtivo] = useState<AtivoConfirmacao | null>(null);
-  const [dataHora, setDataHora] = useState<string>("");
-  const [loading, setLoading] = useState(true);
-  const [salvando, setSalvando] = useState(false);
-  const [dadosProcessados, setDadosProcessados] = useState(false); // Nova flag
+  const [ambiente, setAmbiente] = useState<string>("Geral");
+  const [observacoes, setObservacoes] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [confirmado, setConfirmado] = useState(false);
 
-  // Função para voltar de forma segura
-  const voltarComSeguranca = useCallback(() => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.push("/camera/camera");
-    }
-  }, [router]);
-
-  // Carrega os dados passados da câmera - CORRIGIDO
   useEffect(() => {
-    // Se já processamos os dados, não processa novamente
-    if (dadosProcessados) return;
-
-    const processarDados = async () => {
-      try {
-        if (params.ativo && params.ativo !== "undefined") {
-          const ativoData = JSON.parse(params.ativo as string);
-          setAtivo(ativoData);
-          setDataHora((params.dataHora as string) || new Date().toISOString());
-          setDadosProcessados(true); // Marca como processado
-        } else {
-          // Se não tem dados, mostra alerta e volta
-          Alert.alert("Aviso", "Nenhum item recebido para confirmação", [
-            {
-              text: "OK",
-              onPress: () => {
-                setTimeout(() => voltarComSeguranca(), 100);
-              },
-            },
-          ]);
-        }
-      } catch (error) {
-        console.error("Erro ao parsear dados do ativo:", error);
-        Alert.alert("Erro", "Dados inválidos recebidos", [
-          {
-            text: "OK",
-            onPress: () => {
-              setTimeout(() => voltarComSeguranca(), 100);
-            },
-          },
-        ]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    processarDados();
-  }, [params, dadosProcessados, voltarComSeguranca]); // Adicionado dependências
-
-  // Função para salvar a verificação no AsyncStorage
-  const salvarVerificacao = async () => {
-    if (!ativo) return;
-
-    setSalvando(true);
     try {
-      // Carrega verificações existentes
-      const verificacoesJson = await AsyncStorage.getItem(
-        STORAGE_KEY_VERIFICADOS,
-      );
-      const verificacoes = verificacoesJson ? JSON.parse(verificacoesJson) : [];
+      if (params.ativo) {
+        const ativoData: AtivoConfirmacao = JSON.parse(params.ativo);
+        setAtivo(ativoData);
+      }
 
-      // Adiciona nova verificação
-      const novaVerificacao = {
-        ...ativo,
-        dataHora: new Date().toISOString(),
-        status: "confirmado",
-      };
-
-      verificacoes.push(novaVerificacao);
-
-      // Salva no AsyncStorage
-      await AsyncStorage.setItem(
-        STORAGE_KEY_VERIFICADOS,
-        JSON.stringify(verificacoes),
-      );
-
-      console.log("✅ Verificação salva:", novaVerificacao);
-
-      // Navega para a câmera após salvar
-      setTimeout(() => {
-        router.push("/camera/camera");
-      }, 500);
+      if (params.ambiente) {
+        setAmbiente(params.ambiente);
+      } else {
+        setAmbiente("Geral");
+      }
     } catch (error) {
-      console.error("❌ Erro ao salvar verificação:", error);
-      Alert.alert("Erro", "Não foi possível salvar a verificação");
-      setSalvando(false);
+      console.error("❌ Erro ao parsear dados do ativo:", error);
+      Alert.alert("Erro", "Dados inválidos recebidos");
+      router.back();
+    }
+  }, [params.ativo, params.ambiente]); // ← CORREÇÃO: Apenas os valores específicos
+
+  const handleConfirmar = async () => {
+    if (!ativo) {
+      Alert.alert("Erro", "Dados do ativo não encontrados");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Adiciona o item à lista de verificados
+      const sucesso = await adicionarItemVerificado(
+        {
+          id: ativo.id,
+          nome: ativo.nome,
+        },
+        ambiente,
+        ativo.tipoCodigo === "manual" ? "manual" : "camera",
+        ativo.codigoEscaneado,
+        observacoes.trim() || undefined,
+      );
+
+      if (sucesso) {
+        setConfirmado(true);
+
+        // Mostra confirmação por 2 segundos antes de voltar
+        setTimeout(() => {
+          router.back();
+        }, 2000);
+      } else {
+        Alert.alert(
+          "Aviso",
+          "Este item já foi verificado neste ambiente anteriormente.",
+          [{ text: "OK" }],
+        );
+      }
+    } catch (error) {
+      console.error("❌ Erro ao confirmar item:", error);
+      Alert.alert("Erro", "Não foi possível confirmar o item");
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Função para cancelar/voltar
   const handleCancelar = () => {
-    voltarComSeguranca();
+    router.back();
   };
-
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.centerContainer}>
-        <StatusBar backgroundColor="#3A6F78" barStyle="light-content" />
-        <Text style={styles.loadingText}>Carregando dados do item...</Text>
-      </SafeAreaView>
-    );
-  }
 
   if (!ativo) {
     return (
-      <SafeAreaView style={styles.centerContainer}>
-        <StatusBar backgroundColor="#3A6F78" barStyle="light-content" />
-        <Text style={styles.errorText}>Nenhum item para confirmar</Text>
-        <TouchableOpacity style={styles.button} onPress={voltarComSeguranca}>
-          <Text style={styles.buttonText}>Voltar para Câmera</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3A6F78" />
+        <Text style={styles.loadingText}>Carregando dados...</Text>
+      </View>
     );
   }
 
-  // Formata a data/hora
-  const dataFormatada = new Date(dataHora).toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
+  if (confirmado) {
+    return (
+      <View style={styles.confirmadoContainer}>
+        <Ionicons name="checkmark-circle" size={80} color="#4CAF50" />
+        <Text style={styles.confirmadoTitle}>Item Confirmado!</Text>
+        <Text style={styles.confirmadoText}>
+          O item foi adicionado aos verificados no ambiente {ambiente}.
+        </Text>
+        <Text style={styles.voltandoText}>Voltando em 2 segundos...</Text>
+      </View>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar backgroundColor="#3A6F78" barStyle="light-content" />
-
-      {/* HEADER */}
+    <ScrollView style={styles.container}>
+      {/* Cabeçalho */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Confirmar Item</Text>
-        <Text style={styles.headerSubtitle}>
-          Verifique os dados antes de confirmar
+        <Text style={styles.title}>Confirmar Item</Text>
+        <Text style={styles.subtitle}>
+          Verifique as informações antes de confirmar
         </Text>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Card de informações */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>✅ Item Escaneado</Text>
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusText}>Encontrado na Lista</Text>
-            </View>
-          </View>
-
-          <View style={styles.infoSection}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>ID do Ativo:</Text>
-              <Text style={styles.infoValue}>{ativo.id}</Text>
-            </View>
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Nome:</Text>
-              <Text style={styles.infoValue}>{ativo.nome}</Text>
-            </View>
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Código Escaneado:</Text>
-              <Text style={styles.infoValueCode}>{ativo.codigoEscaneado}</Text>
-            </View>
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Tipo de Código:</Text>
-              <Text style={styles.infoValue}>{ativo.tipoCodigo}</Text>
-            </View>
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Data/Hora:</Text>
-              <Text style={styles.infoValue}>{dataFormatada}</Text>
-            </View>
-          </View>
-
-          {/* Separador */}
-          <View style={styles.separator} />
-
-          {/* Instruções */}
-          <View style={styles.instructions}>
-            <Text style={styles.instructionsTitle}>Instruções:</Text>
-            <Text style={styles.instructionsText}>
-              1. Verifique se o ID e nome correspondem ao item físico{"\n"}
-              2. Confirme se o código escaneado está correto{"\n"}
-              3. Clique em "Confirmar" para salvar a verificação
-            </Text>
+      {/* Informações do Item */}
+      <View style={styles.card}>
+        <View style={styles.infoRow}>
+          <Ionicons name="barcode-outline" size={24} color="#3A6F78" />
+          <View style={styles.infoContent}>
+            <Text style={styles.infoLabel}>Código do Item</Text>
+            <Text style={styles.infoValue}>{ativo.id}</Text>
           </View>
         </View>
 
-        {/* Botões de ação */}
-        <View style={styles.buttonsContainer}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.cancelButton]}
-            onPress={handleCancelar}
-            disabled={salvando}
-          >
-            <Text style={styles.cancelButtonText}>Cancelar</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionButton, styles.confirmButton]}
-            onPress={salvarVerificacao}
-            disabled={salvando}
-          >
-            {salvando ? (
-              <Text style={styles.confirmButtonText}>Salvando...</Text>
-            ) : (
-              <Text style={styles.confirmButtonText}>✅ Confirmar</Text>
-            )}
-          </TouchableOpacity>
+        <View style={styles.infoRow}>
+          <Ionicons name="cube-outline" size={24} color="#3A6F78" />
+          <View style={styles.infoContent}>
+            <Text style={styles.infoLabel}>Nome do Item</Text>
+            <Text style={styles.infoValue}>{ativo.nome}</Text>
+          </View>
         </View>
 
-        {/* Informações adicionais */}
-        <View style={styles.additionalInfo}>
-          <Text style={styles.additionalInfoText}>
-            ℹ️ Esta confirmação será salva no histórico e poderá ser exportada
-            posteriormente nos relatórios.
-          </Text>
+        <View style={styles.infoRow}>
+          <Ionicons name="scan-outline" size={24} color="#3A6F78" />
+          <View style={styles.infoContent}>
+            <Text style={styles.infoLabel}>Código Escaneado</Text>
+            <Text style={styles.infoValue}>{ativo.codigoEscaneado}</Text>
+          </View>
         </View>
-      </ScrollView>
 
-      {/* Footer com link para voltar à câmera */}
-      <TouchableOpacity
-        style={styles.footerLink}
-        onPress={() => router.push("/camera/camera")}
-        disabled={salvando}
-      >
-        <Text style={styles.footerLinkText}>↻ Escanear outro item</Text>
-      </TouchableOpacity>
-    </SafeAreaView>
+        <View style={styles.infoRow}>
+          <Ionicons name="business-outline" size={24} color="#3A6F78" />
+          <View style={styles.infoContent}>
+            <Text style={styles.infoLabel}>Ambiente</Text>
+            <Text style={styles.infoValue}>{ambiente}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Campo de Observações */}
+      <View style={styles.card}>
+        <Text style={styles.sectionTitle}>Observações (Opcional)</Text>
+        <TextInput
+          style={styles.observacoesInput}
+          placeholder="Adicione alguma observação sobre o item..."
+          value={observacoes}
+          onChangeText={setObservacoes}
+          multiline
+          numberOfLines={4}
+          maxLength={200}
+        />
+        <Text style={styles.charCount}>
+          {observacoes.length}/200 caracteres
+        </Text>
+      </View>
+
+      {/* Botões de Ação */}
+      <View style={styles.buttonsContainer}>
+        <TouchableOpacity
+          style={[styles.button, styles.cancelButton]}
+          onPress={handleCancelar}
+          disabled={loading}
+        >
+          <Ionicons name="close-circle-outline" size={20} color="#FFF" />
+          <Text style={styles.buttonText}>Cancelar</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.button, styles.confirmButton]}
+          onPress={handleConfirmar}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFF" size="small" />
+          ) : (
+            <>
+              <Ionicons
+                name="checkmark-circle-outline"
+                size={20}
+                color="#FFF"
+              />
+              <Text style={styles.buttonText}>Confirmar Item</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Informações Adicionais */}
+      <View style={styles.infoCard}>
+        <Ionicons name="information-circle-outline" size={20} color="#3A6F78" />
+        <Text style={styles.infoText}>
+          Ao confirmar, este item será marcado como "verificado" e aparecerá no
+          progresso da coleta no ambiente {ambiente}.
+        </Text>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#E6F0F2",
+    backgroundColor: "#F4F6F8",
+    padding: 20,
   },
-  centerContainer: {
+  loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#E6F0F2",
-    padding: 20,
+    backgroundColor: "#F4F6F8",
   },
   loadingText: {
-    fontSize: 18,
-    color: "#3A6F78",
-    textAlign: "center",
+    marginTop: 16,
+    fontSize: 16,
+    color: "#666",
   },
-  errorText: {
-    fontSize: 18,
-    color: "#FF6B6B",
-    textAlign: "center",
-    marginBottom: 20,
+  confirmadoContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F4F6F8",
+    padding: 30,
   },
-  header: {
-    backgroundColor: "#3A6F78",
-    paddingHorizontal: 20,
-    paddingTop: 40,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 15,
-    borderBottomRightRadius: 15,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-  },
-  headerTitle: {
-    color: "#F4F7FB",
+  confirmadoTitle: {
     fontSize: 28,
     fontWeight: "bold",
-    textAlign: "center",
-    fontFamily: "poppins",
-    letterSpacing: 0.3,
+    marginTop: 20,
+    marginBottom: 10,
+    color: "#4CAF50",
   },
-  headerSubtitle: {
-    color: "#C8E6C9",
+  confirmadoText: {
+    fontSize: 16,
+    textAlign: "center",
+    color: "#666",
+    marginBottom: 30,
+    lineHeight: 22,
+  },
+  voltandoText: {
     fontSize: 14,
-    textAlign: "center",
-    marginTop: 5,
-    fontFamily: "poppins",
+    color: "#999",
+    fontStyle: "italic",
   },
-  content: {
-    flex: 1,
-    padding: 20,
+  header: {
+    marginBottom: 24,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#666",
   },
   card: {
     backgroundColor: "#FFF",
     borderRadius: 12,
     padding: 20,
-    marginBottom: 20,
-    elevation: 2,
+    marginBottom: 16,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  cardTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#3A6F78",
-    fontFamily: "poppins",
-  },
-  statusBadge: {
-    backgroundColor: "#4CAF50",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  statusText: {
-    color: "#FFF",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  infoSection: {
-    marginBottom: 20,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
   infoRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F0F0F0",
+    marginBottom: 16,
+  },
+  infoContent: {
+    marginLeft: 12,
+    flex: 1,
   },
   infoLabel: {
-    fontSize: 16,
-    color: "#666",
-    fontFamily: "poppins",
-    flex: 1,
+    fontSize: 12,
+    color: "#999",
+    marginBottom: 4,
   },
   infoValue: {
     fontSize: 16,
+    color: "#333",
+    fontWeight: "500",
+  },
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: "600",
     color: "#333",
-    fontFamily: "poppins",
-    flex: 2,
-    textAlign: "right",
+    marginBottom: 12,
   },
-  infoValueCode: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#3A6F78",
-    fontFamily: "poppins",
-    flex: 2,
-    textAlign: "right",
-  },
-  separator: {
-    height: 1,
-    backgroundColor: "#E0E0E0",
-    marginVertical: 20,
-  },
-  instructions: {
+  observacoesInput: {
     backgroundColor: "#F8F9FA",
-    padding: 15,
     borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: "#3A6F78",
-  },
-  instructionsTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#3A6F78",
-    marginBottom: 8,
-    fontFamily: "poppins",
-  },
-  instructionsText: {
+    padding: 12,
     fontSize: 14,
-    color: "#666",
-    lineHeight: 20,
-    fontFamily: "poppins",
+    color: "#333",
+    textAlignVertical: "top",
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    minHeight: 100,
+  },
+  charCount: {
+    textAlign: "right",
+    fontSize: 12,
+    color: "#999",
+    marginTop: 4,
   },
   buttonsContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 10,
-    marginBottom: 30,
-  },
-  actionButton: {
-    flex: 1,
-    paddingVertical: 16,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    marginHorizontal: 5,
-  },
-  cancelButton: {
-    backgroundColor: "#FFF",
-    borderWidth: 2,
-    borderColor: "#FF6B6B",
-  },
-  confirmButton: {
-    backgroundColor: "#4CAF50",
-    borderWidth: 2,
-    borderColor: "#4CAF50",
-  },
-  cancelButtonText: {
-    color: "#FF6B6B",
-    fontSize: 16,
-    fontWeight: "bold",
-    fontFamily: "poppins",
-  },
-  confirmButtonText: {
-    color: "#FFF",
-    fontSize: 16,
-    fontWeight: "bold",
-    fontFamily: "poppins",
-  },
-  additionalInfo: {
-    backgroundColor: "#E3F2FD",
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 20,
-  },
-  additionalInfoText: {
-    fontSize: 13,
-    color: "#1976D2",
-    fontStyle: "italic",
-    textAlign: "center",
-    lineHeight: 18,
-  },
-  footerLink: {
-    backgroundColor: "#3A6F78",
-    padding: 15,
-    alignItems: "center",
-    borderTopWidth: 1,
-    borderTopColor: "#E0E0E0",
-  },
-  footerLinkText: {
-    color: "#FFF",
-    fontSize: 16,
-    fontWeight: "600",
-    fontFamily: "poppins",
+    marginTop: 24,
+    marginBottom: 16,
   },
   button: {
-    backgroundColor: "#3A6F78",
-    padding: 15,
-    borderRadius: 8,
+    flex: 1,
+    flexDirection: "row",
     alignItems: "center",
-    marginTop: 20,
+    justifyContent: "center",
+    padding: 16,
+    borderRadius: 8,
+    marginHorizontal: 6,
+  },
+  cancelButton: {
+    backgroundColor: "#9E9E9E",
+  },
+  confirmButton: {
+    backgroundColor: "#3A6F78",
   },
   buttonText: {
     color: "#FFF",
-    fontSize: 16,
     fontWeight: "600",
-    fontFamily: "poppins",
+    fontSize: 16,
+    marginLeft: 8,
+  },
+  infoCard: {
+    backgroundColor: "#E8F4F8",
+    borderRadius: 8,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 30,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 13,
+    color: "#3A6F78",
+    marginLeft: 12,
+    lineHeight: 18,
   },
 });
