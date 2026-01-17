@@ -213,33 +213,6 @@ export default function Home2() {
               Gerenciar Ambientes
             </Text>
           </TouchableOpacity>
-
-          {/* Botão para voltar e limpar lista */}
-          <TouchableOpacity
-            onPress={async () => {
-              await AsyncStorage.removeItem(STORAGE_KEY);
-              await AsyncStorage.removeItem(FILE_NAME_KEY);
-              router.push("/");
-            }}
-            style={{
-              backgroundColor: "#FF6B6B",
-              padding: 17,
-              marginBottom: 24,
-            }}
-          >
-            <Text
-              style={{
-                color: "#FFF",
-                textAlign: "center",
-                fontSize: 20,
-                fontFamily: "poppins",
-                fontWeight: "semibold",
-                letterSpacing: 0.26,
-              }}
-            >
-              Limpar Lista e Voltar
-            </Text>
-          </TouchableOpacity>
         </View>
       </View>
 
