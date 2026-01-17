@@ -331,7 +331,7 @@ export default function CameraScreen() {
       {/* Botão de voltar */}
       <TouchableOpacity
         style={styles.backButton}
-        onPress={() => router.push("/")}
+        onPress={() => router.push("/home2")}
       >
         <Text style={styles.backButtonText}>← Voltar</Text>
       </TouchableOpacity>

@@ -21,10 +21,12 @@ import {
 interface Ativo {
   id: string;
   nome: string;
+  ambiente?: string;
 }
 
-// Constante para o AsyncStorage
+// Constantes para o AsyncStorage
 const LISTA_ATIVOS_KEY = "@insistems:lista_ativos";
+const LISTA_VERIFICADOS_KEY = "@insistems:lista_verificados";
 
 export default function RoomPage() {
   const { room } = useLocalSearchParams<{ room: string }>();
@@ -34,11 +36,15 @@ export default function RoomPage() {
   const [codigoDigitado, setCodigoDigitado] = useState("");
   const [loading, setLoading] = useState(false);
   const [listaAtivos, setListaAtivos] = useState<Ativo[]>([]);
+  const [listaVerificados, setListaVerificados] = useState<Ativo[]>([]);
+  const [totalAmbiente, setTotalAmbiente] = useState(0);
+  const [verificadosAmbiente, setVerificadosAmbiente] = useState(0);
 
-  // Carrega itens do ambiente e a lista de ativos
+  // Carrega itens do ambiente e as listas
   useEffect(() => {
     loadItems();
     carregarListaAtivos();
+    carregarListaVerificados();
   }, []);
 
   // Carrega itens do ambiente do AsyncStorage
@@ -55,12 +61,81 @@ export default function RoomPage() {
         const lista = JSON.parse(listaJson);
         setListaAtivos(lista);
         console.log(`📋 Lista de ativos carregada: ${lista.length} itens`);
+
+        // Calcula total de ativos no ambiente específico
+        const ativosNoAmbiente = lista.filter((ativo: Ativo) => {
+          // Se for "Geral", inclui todos os ativos
+          if (room === "Geral") return true;
+          // Se o ativo tem ambiente definido, compara com o ambiente atual
+          return ativo.ambiente === room;
+        });
+        setTotalAmbiente(ativosNoAmbiente.length);
       } else {
         console.log("⚠️ Nenhuma lista de ativos encontrada");
       }
     } catch (error) {
       console.error("❌ Erro ao carregar lista de ativos:", error);
     }
+  };
+
+  // Carrega a lista de verificados do AsyncStorage
+  const carregarListaVerificados = async () => {
+    try {
+      const verificadosJson = await AsyncStorage.getItem(LISTA_VERIFICADOS_KEY);
+      if (verificadosJson) {
+        const verificados = JSON.parse(verificadosJson);
+        setListaVerificados(verificados);
+        console.log(
+          `✅ Lista de verificados carregada: ${verificados.length} itens`,
+        );
+
+        // Calcula quantos verificados estão no ambiente específico
+        const verificadosNoAmbiente = verificados.filter((item: Ativo) => {
+          // Se for "Geral", inclui todos os verificados
+          if (room === "Geral") return true;
+          // Se o item tem ambiente definido, compara com o ambiente atual
+          return item.ambiente === room;
+        });
+        setVerificadosAmbiente(verificadosNoAmbiente.length);
+      } else {
+        console.log("⚠️ Nenhuma lista de verificados encontrada");
+        setListaVerificados([]);
+      }
+    } catch (error) {
+      console.error("❌ Erro ao carregar lista de verificados:", error);
+    }
+  };
+
+  // Atualiza o progresso sempre que as listas mudam
+  useEffect(() => {
+    calcularProgresso();
+  }, [listaAtivos, listaVerificados, room]);
+
+  // Função para calcular o progresso
+  const calcularProgresso = () => {
+    if (room === "Geral") {
+      // Para "Geral", conta todos os ativos e verificados
+      setTotalAmbiente(listaAtivos.length);
+      setVerificadosAmbiente(listaVerificados.length);
+    } else {
+      // Para ambientes específicos, filtra por ambiente
+      const ativosNoAmbiente = listaAtivos.filter(
+        (ativo: Ativo) => ativo.ambiente === room,
+      );
+      const verificadosNoAmbiente = listaVerificados.filter(
+        (item: Ativo) => item.ambiente === room,
+      );
+
+      setTotalAmbiente(ativosNoAmbiente.length);
+      setVerificadosAmbiente(verificadosNoAmbiente.length);
+    }
+  };
+
+  // Calcula a porcentagem do progresso
+  const calcularPorcentagem = () => {
+    if (totalAmbiente === 0) return 0;
+    const porcentagem = (verificadosAmbiente / totalAmbiente) * 100;
+    return Math.min(porcentagem, 100); // Limita a 100%
   };
 
   // Função para verificar se o código está na lista
@@ -132,6 +207,7 @@ export default function RoomPage() {
         nome: resultado.ativo.nome,
         codigoEscaneado: codigoDigitado,
         tipoCodigo: "manual",
+        ambiente: room, // Adiciona o ambiente atual
       };
 
       // Fecha o modal
@@ -158,8 +234,6 @@ export default function RoomPage() {
             text: "Tentar novamente",
             onPress: () => {
               setLoading(false);
-              // Foca no campo novamente
-              // Isso seria implementado com ref, mas mantemos simples por enquanto
             },
           },
           {
@@ -204,6 +278,9 @@ export default function RoomPage() {
     Keyboard.dismiss();
   };
 
+  // Calcula a porcentagem atual
+  const progressPercentage = calcularPorcentagem();
+
   return (
     <View style={styles.container}>
       {/* Cabeçalho */}
@@ -214,14 +291,25 @@ export default function RoomPage() {
       {/* Título do progresso */}
       <Text style={styles.sectionTitle}>Seu progresso</Text>
 
-      {/* Barra de progresso */}
+      {/* Barra de progresso DINÂMICA */}
       <View style={styles.progressBar}>
-        <View style={styles.progressFill} />
+        <View
+          style={[
+            styles.progressFill,
+            {
+              width: `${progressPercentage}%`,
+              backgroundColor:
+                progressPercentage === 100 ? "#4CAF50" : "#3a6f78",
+            },
+          ]}
+        />
       </View>
 
-      {/* Texto do progresso */}
+      {/* Texto do progresso DINÂMICO */}
       <Text style={styles.progressText}>
-        {items.length} itens já foram verificados neste ambiente
+        {totalAmbiente === 0
+          ? "Nenhum item neste ambiente"
+          : `${verificadosAmbiente} de ${totalAmbiente} itens já foram verificados neste ambiente (${Math.round(progressPercentage)}%)`}
       </Text>
 
       {/* Botões principais */}
@@ -421,7 +509,7 @@ export default function RoomPage() {
   );
 }
 
-// Estilos
+// Estilos (mantidos iguais)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -455,7 +543,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   progressFill: {
-    width: "20%",
     height: "100%",
     backgroundColor: "#3a6f78",
     borderRadius: 5,

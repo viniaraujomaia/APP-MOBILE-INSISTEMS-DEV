@@ -25,7 +25,7 @@ export default function Home() {
   const [hasSavedList, setHasSavedList] = useState(false);
   const [savedFileName, setSavedFileName] = useState("");
   const [savedItemCount, setSavedItemCount] = useState(0);
-  const [isCheckingStorage, setIsCheckingStorage] = useState(true); // Novo estado para controlar a verificação
+  const [isCheckingStorage, setIsCheckingStorage] = useState(true);
   const router = useRouter();
 
   // Carrega a lista salva quando a tela é aberta
@@ -71,6 +71,11 @@ export default function Home() {
       await AsyncStorage.removeItem(FILE_NAME_KEY);
       await AsyncStorage.removeItem("@insistems:import_date");
 
+      // Também limpa as chaves do sistema de progresso
+      await AsyncStorage.removeItem("@imported_items");
+      await AsyncStorage.removeItem("@verified_items");
+      await AsyncStorage.removeItem("@total_items");
+
       setHasSavedList(false);
       setSavedFileName("");
       setSavedItemCount(0);
@@ -82,51 +87,48 @@ export default function Home() {
     }
   };
 
-  // Função para continuar com a lista salva (agora não é mais necessária para o botão, mas mantida para eventualidades)
-  const continuarComListaSalva = async () => {
+  // Função chamada quando clica em "Prosseguir" no modal
+  const handleProceed = async (ativos: Ativo[], fileName: string) => {
     try {
-      const listaJson = await AsyncStorage.getItem(STORAGE_KEY);
-      const fileName = await AsyncStorage.getItem(FILE_NAME_KEY);
+      console.log("💾 Salvando lista importada...");
+      console.log("📊 Itens a salvar:", ativos.length);
 
-      if (!listaJson) {
-        Alert.alert("Erro", "Não há lista salva para continuar");
-        return;
-      }
+      // 1. SALVA PARA O SISTEMA DE PROGRESSO (ContinueCollection)
+      await AsyncStorage.setItem("@imported_items", JSON.stringify(ativos));
+      await AsyncStorage.setItem("@verified_items", JSON.stringify([])); // Inicializa vazio
+      await AsyncStorage.setItem("@total_items", ativos.length.toString());
 
-      const ativos = JSON.parse(listaJson);
+      // 2. SALVA PARA O SEU FLUXO ATUAL (já existente)
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(ativos));
+      await AsyncStorage.setItem(FILE_NAME_KEY, fileName);
+      await AsyncStorage.setItem(
+        "@insistems:import_date",
+        new Date().toISOString(),
+      );
 
-      router.push({
+      console.log("✅ Lista salva em TODAS as chaves!");
+
+      // Atualiza o estado local
+      setHasSavedList(true);
+      setSavedItemCount(ativos.length);
+      setSavedFileName(fileName);
+
+      // Navega para home2
+      router.replace({
         pathname: "/home2",
         params: {
-          ativos: listaJson,
-          fileName: fileName || "Lista salva",
+          ativos: JSON.stringify(ativos),
+          fileName: fileName,
           total: ativos.length.toString(),
         },
       });
-    } catch (error) {
-      console.error("Erro ao continuar com lista salva:", error);
-      Alert.alert("Erro", "Não foi possível carregar a lista salva");
+    } catch (error: any) {
+      console.error("❌ Erro ao salvar lista:", error);
+      Alert.alert(
+        "Erro",
+        `Não foi possível salvar a lista importada: ${error.message}`,
+      );
     }
-  };
-
-  // Função chamada quando clica em "Prosseguir" no modal
-  const handleProceed = (ativos: Ativo[], fileName: string) => {
-    console.log("Navegando para home2 com:", ativos.length, "itens");
-
-    // Note: a lista já foi salva no AsyncStorage pelo modal
-    router.replace({
-      pathname: "/home2",
-      params: {
-        ativos: JSON.stringify(ativos),
-        fileName: fileName,
-        total: ativos.length.toString(),
-      },
-    });
-
-    // Atualiza o estado para refletir que agora tem uma lista salva
-    setHasSavedList(true);
-    setSavedItemCount(ativos.length);
-    setSavedFileName(fileName);
   };
 
   // Se não tem lista salva, mostra a tela Home normal
@@ -141,8 +143,8 @@ export default function Home() {
           paddingHorizontal: 20,
           paddingTop: 40,
           paddingBottom: 15,
-          elevation: 4, // Sombra para Android
-          shadowColor: "#000", // Sombra para iOS
+          elevation: 4,
+          shadowColor: "#000",
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.2,
           shadowRadius: 3,
@@ -167,7 +169,7 @@ export default function Home() {
         style={{
           flex: 1,
           padding: 20,
-          paddingTop: 30, // Reduzido porque agora tem header
+          paddingTop: 30,
           paddingLeft: 34,
           paddingRight: 34,
           justifyContent: "space-between",

@@ -10,6 +10,7 @@ const STORAGE_KEYS = {
   LISTA_ATIVOS: "@insistems:lista_ativos",
   FILE_NAME: "@insistems:file_name",
   IMPORT_DATE: "@insistems:import_date",
+  LISTA_VERIFICADOS: "@insistems:lista_verficidos",
 };
 
 // Salvar a lista de ativos
