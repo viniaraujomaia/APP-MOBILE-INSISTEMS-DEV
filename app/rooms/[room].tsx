@@ -376,13 +376,13 @@ export default function RoomPage() {
           })
         )}
 
-        {/* Botão finalizar */}
+       {/* Botão finalizar 
         <TouchableOpacity
           style={styles.finishButton}
           onPress={() => router.push("/rooms")}
         >
           <Text style={styles.finishText}>Finalizar Ambiente</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
       </ScrollView>
 
       {/* MODAL para digitar código */}

@@ -1,34 +1,48 @@
-import AsyncStorage from "@react-native-async-storage/async-storage"; //para salvar e ler dados localmente
-import { Link } from "expo-router"; //para navegação entre telas
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { RoomCard } from "../../components/RoomCard"; //componente card de ambiente
-        
-export default function Home() {
-  //estados principais da tela
-  const [rooms, setRooms] = useState<string[]>([]); //lista de ambientes
-  const [editing, setEditing] = useState<string | null>(null); //ambiente em edição
-  const [editValue, setEditValue] = useState(""); //valor da edição
-  const [showModal, setShowModal] = useState(false); //controle do modal de novo ambiente
-  const [newRoom, setNewRoom] = useState(""); //nome da novo ambiente
-  const [addError, setAddError] = useState(""); //mensagem de erro ao adicionar
+import {
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { RoomCard } from "../../components/RoomCard";
 
-  //carrega ambientes ao iniciar a tela
+export default function Home() {
+  const router = useRouter();
+
+  // ===== ESTADOS PRINCIPAIS =====
+  const [rooms, setRooms] = useState<string[]>([]);
+  const [editing, setEditing] = useState<string | null>(null); // ambiente em edição
+  const [editValue, setEditValue] = useState(""); // novo nome
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const [showModal, setShowModal] = useState(false); // modal para novo ambiente
+  const [newRoom, setNewRoom] = useState(""); // nome do novo ambiente
+  const [addError, setAddError] = useState(""); // erro de validação ao adicionar
+
+  // ===== CARREGA AMBIENTES =====
   useEffect(() => {
     loadRooms();
   }, []);
 
-  //função para carregar ambientes do AsyncStorage
   const loadRooms = async () => {
     const raw = await AsyncStorage.getItem("rooms");
     setRooms(raw ? JSON.parse(raw) : []);
   };
 
-  //função para adicionar novo ambienete
+  // ===== ADICIONAR AMBIENTE =====
   const addRoom = async () => {
     const name = newRoom.trim();
     if (!name) return setAddError("O nome do ambiente não pode ser vazio.");
-    if (rooms.includes(name)) return setAddError("Esse ambiente já está registrado.");
+    if (rooms.includes(name))
+      return setAddError("Esse ambiente já está registrado.");
 
     const updated = [...rooms, name];
     await AsyncStorage.setItem("rooms", JSON.stringify(updated));
@@ -38,36 +52,23 @@ export default function Home() {
     loadRooms();
   };
 
-  //função para excluir ambiente com confirmação
-  const deleteRoom = async (room: string) => {
-    Alert.alert("Apagar Ambiente", `Deseja realmente apagar o ambiente "${room}" e seus itens?`, [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Apagar",
-        style: "destructive",
-        onPress: async () => {
-          const updated = rooms.filter((r) => r !== room);
-          await AsyncStorage.setItem("rooms", JSON.stringify(updated));
-          await AsyncStorage.removeItem(`items-${room}`);
-          loadRooms();
-        },
-      },
-    ]);
-  };
-
-  //inicia edição de um ambiente
+  // ===== INICIAR EDIÇÃO =====
   const startEditing = (room: string) => {
     setEditing(room);
     setEditValue(room);
   };
 
-  //salva edição do ambiente
+  // ===== SALVAR EDIÇÃO =====
   const saveEdit = async () => {
+    if (!editing) return;
+
     const newName = editValue.trim();
-    if (!newName) return Alert.alert("Erro", "O nome não pode ser vazio.");
-    if (rooms.includes(newName) && newName !== editing) return Alert.alert("Erro", "Já existe um ambiente com esse nome.");
+    if (!newName) return;
+
+    if (rooms.includes(newName) && newName !== editing) return;
 
     const updatedRooms = rooms.map((r) => (r === editing ? newName : r));
+
     const rawItems = await AsyncStorage.getItem(`items-${editing}`);
     if (rawItems) {
       await AsyncStorage.setItem(`items-${newName}`, rawItems);
@@ -79,148 +80,249 @@ export default function Home() {
     loadRooms();
   };
 
+  // ===== EXCLUIR AMBIENTE =====
+  const deleteRoom = async () => {
+    if (!deleting) return;
+
+    const updated = rooms.filter((r) => r !== deleting);
+    await AsyncStorage.setItem("rooms", JSON.stringify(updated));
+    await AsyncStorage.removeItem(`items-${deleting}`);
+    setDeleting(null);
+    setConfirmDelete(false);
+    loadRooms();
+  };
+
   return (
     <View style={styles.container}>
-      {/*título da tela e botão para adicionar novo ambiente*/}
-      <Text style={styles.title}>Ambientes</Text>
-      <TouchableOpacity style={styles.primaryButton} onPress={() => setShowModal(true)}>
-        <Text style={styles.buttonText}>Novo Ambiente</Text>
-      </TouchableOpacity>
-
-      {/*modal para adicionar nova ambiente*/}
-      <Modal visible={showModal} transparent animationType="fade" onRequestClose={() => setShowModal(false)}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPressOut={() => setShowModal(false)}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Novo Ambiente</Text>
-            <TextInput
-              placeholder="Nome do Ambiente"
-              value={newRoom}
-              onChangeText={(v) => {
-                setNewRoom(v);
-                setAddError("");
-              }}
-              style={styles.input}
-            />
-            {addError ? <Text style={styles.errorText}>{addError}</Text> : null}
-
-            <TouchableOpacity style={styles.primaryButton} onPress={addRoom}>
-              <Text style={styles.buttonText}>Confirmar</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.redButton} onPress={() => setShowModal(false)}>
-              <Text style={styles.buttonText}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
+      {/* CABEÇALHO */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          padding: 15,
+          paddingTop: 50,
+        }}
+      >
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-      </Modal>
 
-      {/*área de edição de ambiente*/}
-<Modal
-  visible={!!editing}
-  transparent
-  animationType="fade"
-  onRequestClose={() => setEditing(null)}
->
-  <TouchableOpacity
-    style={styles.modalOverlay}
-    activeOpacity={1}
-    onPressOut={() => setEditing(null)}
-  >
-    <View style={styles.modalContent}>
-      <Text style={styles.modalTitle}>Editar Ambiente</Text>
+        <View style={{ flex: 1, alignItems: "center" }}>
+          <Text style={{ fontSize: 20, fontWeight: "500" }}>
+            Gerenciar Ambientes
+          </Text>
+        </View>
+      </View>
 
-      <TextInput
-        value={editValue}
-        onChangeText={setEditValue}
-        style={styles.input}
-      />
+      {/* CONTEÚDO PRINCIPAL */}
+      <View style={{ paddingHorizontal: 27, flex: 1 }}>
+        <Text style={{ fontSize: 32, fontWeight: "600", marginTop: 20 }}>
+          Ambientes
+        </Text>
 
-      <TouchableOpacity style={styles.primaryButton} onPress={saveEdit}>
-        <Text style={styles.buttonText}>Salvar</Text>
-      </TouchableOpacity>
+        {/* BOTÃO NOVO AMBIENTE */}
+        <TouchableOpacity
+          style={[styles.primaryButton, { marginTop: 24 }]}
+          onPress={() => setShowModal(true)}
+        >
+          <Text style={styles.buttonText}>Novo Ambiente</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity style={styles.redButton} onPress={() => setEditing(null)}>
-        <Text style={styles.buttonText}>Cancelar</Text>
-      </TouchableOpacity>
-    </View>
-  </TouchableOpacity>
-</Modal>
+        {/* ===== MODAL NOVO AMBIENTE ===== */}
+        <Modal visible={showModal} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <Text style={styles.modalTitle}>Novo Ambiente</Text>
 
-      {/*lista de ambientes*/}
-      <ScrollView style={{ flex: 1, marginTop: 20 }}>
-        {rooms.map((room, i) => (
-          <RoomCard key={i} room={room} onEdit={startEditing} onDelete={deleteRoom} />
-        ))}
-      </ScrollView>
+              <TextInput
+                placeholder="Nome do Ambiente"
+                value={newRoom}
+                onChangeText={(v) => {
+                  setNewRoom(v);
+                  setAddError("");
+                }}
+                style={styles.input}
+              />
 
-      {/*botão de implementações para depois*/}
-      <View style={{ flex: 0.2, marginTop: 25 }}>
-        <Link href="/settings" asChild>
-          <TouchableOpacity style={styles.primaryButton}>
-            <Text style={styles.buttonText}>Implementações a posteriori</Text>
-          </TouchableOpacity>
-        </Link>
+              {addError && <Text style={styles.errorText}>{addError}</Text>}
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => setShowModal(false)}
+                >
+                  <Text style={styles.modalButtonText}>Cancelar</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.confirmButton}
+                  onPress={addRoom}
+                >
+                  <Text style={styles.modalButtonText}>Confirmar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ===== MODAL EDITAR AMBIENTE ===== */}
+        <Modal visible={!!editing} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <Text style={styles.modalTitle}>Editar Ambiente</Text>
+
+              <TextInput
+                value={editValue}
+                onChangeText={setEditValue}
+                style={styles.input}
+              />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => setEditing(null)}
+                >
+                  <Text style={styles.modalButtonText}>Cancelar</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.confirmButton}
+                  onPress={saveEdit}
+                >
+                  <Text style={styles.modalButtonText}>Salvar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ===== MODAL EXCLUIR AMBIENTE ===== */}
+        <Modal visible={!!deleting} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <Ionicons
+                name={confirmDelete ? "alert-circle-outline" : "trash-outline"}
+                size={36}
+                color="#D64545"
+                style={{ alignSelf: "center", marginBottom: 10 }}
+              />
+
+              <Text style={{ textAlign: "center", fontSize: 20 }}>
+                Excluir {deleting}
+              </Text>
+
+              <Text
+                style={[
+                  styles.deleteWarning,
+                  confirmDelete && { color: "#D64545", fontWeight: "600" },
+                ]}
+              >
+                {!confirmDelete
+                  ? "Deseja excluir esse ambiente?"
+                  : "Os itens deste ambiente serão movidos para a sala geral.\nExcluir mesmo assim?"}
+              </Text>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => {
+                    setDeleting(null);
+                    setConfirmDelete(false);
+                  }}
+                >
+                  <Text style={styles.modalButtonText}>Cancelar</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.confirmButton}
+                  onPress={() =>
+                    confirmDelete ? deleteRoom() : setConfirmDelete(true)
+                  }
+                >
+                  <Text style={styles.modalButtonText}>Confirmar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
+        {/* LISTA DE AMBIENTES */}
+        <ScrollView style={{ flex: 1, marginTop: 20 }}>
+          {rooms.map((room, i) => (
+            <RoomCard
+              key={i}
+              room={room}
+              onEdit={startEditing}
+              onDelete={() => setDeleting(room)}
+            />
+          ))}
+        </ScrollView>
+
+        {/* BOTÃO DE IMPLEMENTAÇÕES PARA DEPOIS 
+        <View style={{ marginTop: 25, flex: 0.1 }}>
+          <Link href="/settings" asChild>
+            <TouchableOpacity style={styles.primaryButton}>
+              <Text style={styles.buttonText}>Implementações a posteriori</Text>
+            </TouchableOpacity>
+          </Link> 
+        </View>*/}
       </View>
     </View>
   );
 }
 
-//estilos principais da tela
+// ===== ESTILOS =====
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#f5f5f5" },
-  title: { fontSize: 26, fontWeight: "bold", marginBottom: 20 },
-  card: {
-    backgroundColor: "#fff",
-    padding: 15,
-    borderRadius: 0,
-    marginVertical: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 5,
-    elevation: 3,
-  },
-  cardTitle: { fontSize: 18, marginBottom: 10 },
+  container: { flex: 1, backgroundColor: "#f5f5f5" },
   input: {
     borderWidth: 1,
     borderColor: "#ddd",
     padding: 10,
-    borderRadius: 0,
-    marginBottom: 10,
     backgroundColor: "#fff",
   },
   primaryButton: {
-  backgroundColor: "#3A6F78",
-  padding: 12,
-  borderRadius: 0, //botão quadrado
-  alignItems: "center",
-  marginVertical: 5,
-},
-
-redButton: {
-  backgroundColor: "#D64545",
-  padding: 12,
-  borderRadius: 0, //botão quadrado
-  alignItems: "center",
-  marginTop: 5,
-},
-
-  buttonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-  cancelButton: {
-    backgroundColor: "#eee",
+    backgroundColor: "#3A6F78",
     padding: 12,
-    borderRadius: 0,
     alignItems: "center",
-    marginTop: 10,
   },
-  /*cancelButtonText: { color: "#333", fontSize: 16 }, */
+  buttonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",
     justifyContent: "center",
     padding: 20,
   },
-  modalContent: { backgroundColor: "white", padding: 20, borderRadius: 0 },
-  modalTitle: { fontSize: 20, marginBottom: 10, fontWeight: "bold" },
+  modalBox: {
+    backgroundColor: "#fff",
+    padding: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 10,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: "#D64545",
+    padding: 12,
+    alignItems: "center",
+  },
+  confirmButton: {
+    flex: 1,
+    backgroundColor: "#3A6F78",
+    padding: 12,
+    alignItems: "center",
+  },
+  modalButtonText: { color: "#fff", fontWeight: "bold" },
+  deleteWarning: {
+    textAlign: "center",
+    marginBottom: 10,
+    fontSize: 15,
+  },
   errorText: { color: "red", marginBottom: 10 },
 });

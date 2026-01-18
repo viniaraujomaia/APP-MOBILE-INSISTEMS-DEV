@@ -23,12 +23,12 @@ export default function ReportsPage() {
         <Text
           style={{
             fontFamily: "Poppins",
-            marginLeft: 130,
+            marginLeft: 100,
             fontSize: 20,
             fontWeight: "500",
           }}
         >
-          Relatórios
+        Relatórios
         </Text>
       </View>
 

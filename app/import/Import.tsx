@@ -1,9 +1,7 @@
-// app/import/index.tsx
 import AsyncStorage from "@react-native-async-storage/async-storage"; // Importe o AsyncStorage
 import * as DocumentPicker from "expo-document-picker";
 import { useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Modal,
   Text,
@@ -36,6 +34,9 @@ export default function ImportModal({
   const [fileName, setFileName] = useState("");
   const [importSuccess, setImportSuccess] = useState(false);
 
+  // Estado exclusivo para a barra de progresso
+  const [progress, setProgress] = useState(0);
+
   // Função para salvar no AsyncStorage
   const salvarListaNoStorage = async (
     listaAtivos: Ativo[],
@@ -43,7 +44,10 @@ export default function ImportModal({
   ) => {
     try {
       // Salva a lista de ativos
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(listaAtivos));
+      await AsyncStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(listaAtivos),
+      );
       // Salva o nome do arquivo
       await AsyncStorage.setItem(FILE_NAME_KEY, nomeArquivo);
       // Salva a data de importação
@@ -65,10 +69,26 @@ export default function ImportModal({
     }
   };
 
+  // Anima a barra de progresso de forma controlada (UX)
+  const animateProgress = async (
+    from: number,
+    to: number,
+    duration = 400,
+  ) => {
+    const steps = 20;
+    const stepTime = duration / steps;
+    const increment = (to - from) / steps;
+
+    for (let i = 1; i <= steps; i++) {
+      await new Promise((res) => setTimeout(res, stepTime));
+      setProgress(Math.round(from + increment * i));
+    }
+  };
+
   const importExcelFile = async () => {
     try {
-      setLoading(true);
       setAtivos([]);
+      setProgress(0);
 
       const result = await DocumentPicker.getDocumentAsync({
         type: [
@@ -80,24 +100,29 @@ export default function ImportModal({
       });
 
       if (result.canceled) {
-        setLoading(false);
         return;
       }
 
       const file = result.assets?.[0];
       if (!file) {
         Alert.alert("Erro", "Nenhum arquivo selecionado");
-        setLoading(false);
         return;
       }
 
+      // A PARTIR DAQUI o loading e a barra começam
+      setLoading(true);
       setFileName(file.name);
+
+      await animateProgress(0, 30);
 
       const response = await fetch(file.uri);
       const arrayBuffer = await response.arrayBuffer();
 
+      await animateProgress(30, 60);
+
       const workbook = XLSX.read(arrayBuffer, { type: "array" });
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+      const worksheet =
+        workbook.Sheets[workbook.SheetNames[0]];
       const jsonData = XLSX.utils.sheet_to_json(worksheet, {
         header: 1,
         defval: "",
@@ -122,7 +147,10 @@ export default function ImportModal({
       }
 
       if (novosAtivos.length === 0) {
-        Alert.alert("Aviso", "Nenhum dado válido encontrado no arquivo.");
+        Alert.alert(
+          "Aviso",
+          "Nenhum dado válido encontrado no arquivo.",
+        );
         setLoading(false);
         return;
       }
@@ -130,8 +158,10 @@ export default function ImportModal({
       setAtivos(novosAtivos);
 
       // SALVA NO ASYNC STORAGE IMEDIATAMENTE APÓS IMPORTAR
+      await animateProgress(60, 90);
       await salvarListaNoStorage(novosAtivos, file.name);
 
+      await animateProgress(90, 100);
       setImportSuccess(true);
     } catch (error: any) {
       console.error("Erro na importação:", error);
@@ -168,6 +198,7 @@ export default function ImportModal({
     setAtivos([]);
     setFileName("");
     setImportSuccess(false);
+    setProgress(0);
   };
 
   const handleClose = () => {
@@ -175,6 +206,8 @@ export default function ImportModal({
     setAtivos([]);
     setFileName("");
     setImportSuccess(false);
+    setProgress(0);
+    setLoading(false);
   };
 
   // Botão principal - agora só faz importação
@@ -216,7 +249,7 @@ export default function ImportModal({
               letterSpacing: 0.312,
             }}
           >
-            Importar Planilha
+            Importar Lista
           </Text>
 
           <Text
@@ -234,13 +267,47 @@ export default function ImportModal({
               : "Importe o arquivo da\ndemanda no formato\n.xlsx para iniciar a sua\ncoleta"}
           </Text>
 
+          {/* Barra de progresso */}
+          {loading && (
+            <View
+              style={{
+                backgroundColor: "#373F51",
+                height: 44,
+                borderRadius: 4,
+                overflow: "hidden",
+                marginBottom: 16,
+              }}
+            >
+              <View
+                style={{
+                  width: `${progress}%`,
+                  backgroundColor: "#58A4B0",
+                  height: "100%",
+                  justifyContent: "center",
+                  alignItems: "flex-end",
+                  paddingRight: 8,
+                }}
+              >
+                <Text
+                  style={{
+                    color: "#FFF",
+                    fontFamily: "poppins",
+                    fontSize: 14,
+                    fontWeight: "600",
+                  }}
+                >
+                  {progress}%
+                </Text>
+              </View>
+            </View>
+          )}
+
           {/* Botão PRINCIPAL (só para importar) */}
-          {!importSuccess && (
+          {!importSuccess && !loading && (
             <TouchableOpacity
               onPress={handleMainButton}
-              disabled={loading}
               style={{
-                backgroundColor: loading ? "#9E9E9E" : "#3A6F78",
+                backgroundColor: "#3A6F78",
                 padding: 14,
                 alignItems: "center",
                 justifyContent: "center",
@@ -249,28 +316,28 @@ export default function ImportModal({
                 paddingLeft: 27,
               }}
             >
-              {loading ? (
-                <ActivityIndicator color="#FFF" size="small" />
-              ) : (
-                <Text
-                  style={{
-                    color: "#F9FBFD",
-                    textAlign: "center",
-                    fontSize: 20,
-                    fontWeight: 600,
-                    letterSpacing: 0.26,
-                    fontFamily: "poppins",
-                  }}
-                >
-                  Carregar Arquivo
-                </Text>
-              )}
+              <Text
+                style={{
+                  color: "#F9FBFD",
+                  textAlign: "center",
+                  fontSize: 20,
+                  fontWeight: "600",
+                  letterSpacing: 0.26,
+                  fontFamily: "poppins",
+                }}
+              >
+                Carregar Arquivo
+              </Text>
             </TouchableOpacity>
           )}
+
           {/* Botões APÓS importação bem-sucedida */}
           {importSuccess && (
             <View
-              style={{ flexDirection: "row", justifyContent: "space-between" }}
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+              }}
             >
               {/* Botão PROSSEGUIR (para navegar) */}
               <TouchableOpacity
@@ -287,7 +354,7 @@ export default function ImportModal({
                     color: "#F9FBFD",
                     textAlign: "center",
                     fontSize: 20,
-                    fontWeight: 600,
+                    fontWeight: "600",
                     letterSpacing: 0.26,
                     fontFamily: "poppins",
                   }}
