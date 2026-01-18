@@ -1,128 +1,82 @@
 // app/services/verificados.ts
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Ativo, ItemVerificado, STORAGE_KEYS } from "../types";
 
-/**
- * Adiciona um item à lista de verificados
- */
+const LISTA_VERIFICADOS_KEY = "@insistems:lista_verificados"; // ← CORREÇÃO AQUI
+
+export interface ItemVerificado {
+  id: string;
+  nome: string;
+  ambiente: string;
+  metodo: "camera" | "manual";
+  codigoLido: string;
+  dataHora: string;
+  observacoes?: string;
+}
+
 export const adicionarItemVerificado = async (
-  ativo: Ativo,
+  item: { id: string; nome: string },
   ambiente: string,
-  tipoVerificacao: "camera" | "manual",
-  codigoVerificado: string,
+  metodo: "camera" | "manual",
+  codigoLido: string,
   observacoes?: string,
 ): Promise<boolean> => {
   try {
-    // 1. Carrega a lista atual de verificados
-    const listaVerificadosJson = await AsyncStorage.getItem(
-      STORAGE_KEYS.LISTA_VERIFICADOS,
-    );
-    const listaVerificados: ItemVerificado[] = listaVerificadosJson
-      ? JSON.parse(listaVerificadosJson)
+    // Carrega lista atual
+    const listaAtualJson = await AsyncStorage.getItem(LISTA_VERIFICADOS_KEY);
+    const listaAtual: ItemVerificado[] = listaAtualJson
+      ? JSON.parse(listaAtualJson)
       : [];
 
-    // 2. Verifica se o item já foi verificado
-    const itemExistente = listaVerificados.find(
-      (item) => item.id === ativo.id && item.ambiente === ambiente,
+    // Verifica se o item já existe neste ambiente
+    const jaExiste = listaAtual.some(
+      (verificado) =>
+        verificado.id === item.id && verificado.ambiente === ambiente,
     );
 
-    if (itemExistente) {
-      console.log(`⚠️ Item ${ativo.id} já foi verificado neste ambiente`);
-      return false;
+    if (jaExiste) {
+      return false; // Já existe neste ambiente
     }
 
-    // 3. Cria o novo item verificado
+    // Adiciona novo item
     const novoItem: ItemVerificado = {
-      id: ativo.id,
-      nome: ativo.nome,
+      id: item.id,
+      nome: item.nome,
       ambiente,
+      metodo,
+      codigoLido,
       dataHora: new Date().toISOString(),
-      estado: "verificado",
-      tipoVerificacao,
-      codigoVerificado,
       observacoes,
     };
 
-    // 4. Adiciona à lista
-    listaVerificados.push(novoItem);
+    listaAtual.push(novoItem);
 
-    // 5. Salva no AsyncStorage
+    // Salva atualizado
     await AsyncStorage.setItem(
-      STORAGE_KEYS.LISTA_VERIFICADOS,
-      JSON.stringify(listaVerificados),
+      LISTA_VERIFICADOS_KEY,
+      JSON.stringify(listaAtual),
     );
-
-    console.log(
-      `✅ Item ${ativo.id} adicionado aos verificados no ambiente ${ambiente}`,
-    );
-
-    // 6. Também salva no ambiente específico (opcional)
-    const chaveAmbiente = STORAGE_KEYS.VERIFICADOS_AMBIENTE(ambiente);
-    await AsyncStorage.setItem(chaveAmbiente, JSON.stringify(novoItem));
 
     return true;
   } catch (error) {
-    console.error("❌ Erro ao adicionar item verificado:", error);
+    console.error("Erro ao adicionar item verificado:", error);
     return false;
   }
 };
 
-/**
- * Obtém todos os itens verificados
- */
 export const obterItensVerificados = async (): Promise<ItemVerificado[]> => {
   try {
-    const listaVerificadosJson = await AsyncStorage.getItem(
-      STORAGE_KEYS.LISTA_VERIFICADOS,
-    );
-    return listaVerificadosJson ? JSON.parse(listaVerificadosJson) : [];
+    const listaJson = await AsyncStorage.getItem(LISTA_VERIFICADOS_KEY);
+    return listaJson ? JSON.parse(listaJson) : [];
   } catch (error) {
-    console.error("❌ Erro ao obter itens verificados:", error);
+    console.error("Erro ao obter itens verificados:", error);
     return [];
   }
 };
 
-/**
- * Obtém itens verificados por ambiente
- */
-export const obterItensVerificadosPorAmbiente = async (
-  ambiente: string,
-): Promise<ItemVerificado[]> => {
-  try {
-    const todosVerificados = await obterItensVerificados();
-    return todosVerificados.filter((item) => item.ambiente === ambiente);
-  } catch (error) {
-    console.error("❌ Erro ao obter itens por ambiente:", error);
-    return [];
-  }
-};
-
-/**
- * Verifica se um item já foi verificado
- */
-export const verificarSeItemFoiVerificado = async (
-  id: string,
-  ambiente: string,
-): Promise<boolean> => {
-  try {
-    const itensVerificados = await obterItensVerificados();
-    return itensVerificados.some(
-      (item) => item.id === id && item.ambiente === ambiente,
-    );
-  } catch (error) {
-    console.error("❌ Erro ao verificar item:", error);
-    return false;
-  }
-};
-
-/**
- * Limpa todos os itens verificados (para debug/reset)
- */
 export const limparItensVerificados = async (): Promise<void> => {
   try {
-    await AsyncStorage.removeItem(STORAGE_KEYS.LISTA_VERIFICADOS);
-    console.log("🧹 Todos os itens verificados foram removidos");
+    await AsyncStorage.removeItem(LISTA_VERIFICADOS_KEY);
   } catch (error) {
-    console.error("❌ Erro ao limpar itens verificados:", error);
+    console.error("Erro ao limpar itens verificados:", error);
   }
 };

@@ -8,7 +8,7 @@ import {
   Modal,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import * as XLSX from "xlsx";
 
@@ -114,7 +114,7 @@ export default function ImportModal({
 
           if (numero) {
             novosAtivos.push({
-              id: `${numero}-${i}`,
+              id: `${numero}`,
               nome: nome || `Ativo ${numero}`,
             });
           }
